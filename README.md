@@ -1,5 +1,5 @@
-# cherry-evals
-Cherry-evals is a webapp for collecting, searching, and managing AI evaluation datasets used by vendors to benchmark their models.
+# cherry-evals 🍒
+Cherry-evals is a webapp for collecting, searching, cherry-picking examples from public evaluation datasets and creating and managing your own evaluation collections.
 
 ## Motivation
 There is not an easy way to search across public evaluation datasets and cherry-pick the best examples for your own experiments, so why not build it?
@@ -15,7 +15,7 @@ Here we can learn:
 - scalability
 - and anything more we want to explore
 
-Right now private repo, might make sense to open-source it later, but for now we can keep it private, so no pressure, we can always create a new one and remove commits.
+Currently a private repo, might make sense to open-source it later, but for now we can keep it private, so no pressure, we can always create a new one and remove commits.
 
 ## Init structure
 Different proposals from agents on how to approach the project can be found under each agents' directory in `AGENTS.md`, `ROADMAP.md` and `README.md` docs.
@@ -36,14 +36,12 @@ The general principle to be followed - in my opinion - is to add simple, working
 - select and set 1 vector db
 - implement embedding and retrieval with 1 model
 - add endpoints to select and export collections as they are
-- add simple conversion
-- one format export
 - set integration with langfuse for our own observability
 - set a simple docker-compose to start services with ease for local development
 
 Second, build UI and user mgmt with lovable.
 
-Deploy Frontend and backend in the easiest way possible, tools TBD (vercel? cloud run? what else?)
+Deploy Frontend and backend in the easiest way possible, tools for deployment TBD (vercel? cloud run? what else?)
 
 And once everything works, expand on each:
 - more datasets
@@ -51,6 +49,7 @@ And once everything works, expand on each:
 - different embedding models
 - add agentic search
 - add agentic code generation for conversion
+- no-code data augmentation
 - allow custom lambda functions for conversion
 - integrate with other eval tools and frameworks
 - improve UI
