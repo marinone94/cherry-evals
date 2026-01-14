@@ -17,20 +17,23 @@ Here we can learn:
 
 Currently a private repo, might make sense to open-source it later, but for now we can keep it private, so no pressure, we can always create a new one and remove commits.
 
-## Init structure
-Different proposals from agents on how to approach the project can be found under each agents' directory in `AGENTS.md`, `ROADMAP.md` and `README.md` docs.
+## Project Structure
 
-I did not have time yet to go in detail through each of them, the first task is to compare and combine to get the most reasonable features, roadmap and agents instructions.
-
-The final initial end state is to have a clean aggregated directory with:
+```
 cherry-evals/
-├── README.md
-├── ROADMAP.md
-├── AGENTS.md
+├── README.md           # This file
+├── ROADMAP.md          # Development roadmap and milestones
+├── AGENTS.md           # AI agent development guidelines
+├── api/                # FastAPI REST API (coming in MVP-0)
+├── agents/             # Google ADK agent definitions (coming in MVP-4)
+├── core/               # Business logic
+├── db/                 # Database layer (PostgreSQL, Qdrant)
+└── tests/              # Test suite
+```
 
-Immediately after, init uv project and set env etc (see AGENTS.md for details)
+See [ROADMAP.md](./ROADMAP.md) for the full development plan.
 
-## Suggested approach
+## Approach
 The general principle to be followed - in my opinion - is to add simple, working steps for each part of the tool:
 - select and ingest 1 dataset
 - select and set 1 vector db

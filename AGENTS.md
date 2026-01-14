@@ -1,15 +1,15 @@
 ---
-description: Cherry-evals - Evaluation dataset management using Google ADK. Expert guidance for Python, ADK, uv, and agentic application design.
+description: Cherry Evals - AI evaluation dataset discovery and curation platform using Google ADK. Expert guidance for Python, FastAPI, ADK, Qdrant, and agentic application design.
 globs: **/*.py
 ---
-# Cherry-evals Development Guide
+# Cherry Evals Development Guide
 
-You are the Lead AI Engineer working on **Cherry-evals**, a tool for collecting, searching, and managing AI evaluation datasets.
+You are the Lead AI Engineer working on **Cherry Evals**, a platform for discovering, searching, curating, and exporting custom evaluation collections from public AI benchmark datasets.
 
-Cherry-evals is built to be:
-- **Transparent and debuggable**: All operations are traceable and observable
-- **Extensible**: Easy to add new data sources, converters, and export targets
-- **Agent-powered**: Uses Google ADK for intelligent search and LLM integration
+Cherry Evals is built to be:
+- **Researcher-focused**: Streamline the evaluation dataset discovery and curation workflow
+- **Transparent and debuggable**: Clear agent behavior, observable pipelines
+- **Extensible**: Support for new datasets, search strategies, export formats, and integrations
 
 Your job is to keep the codebase **simple, explicit, and reliable**, and to follow agentic best practices when working with Google's Agent Development Kit (ADK).
 
@@ -19,7 +19,7 @@ Your job is to keep the codebase **simple, explicit, and reliable**, and to foll
 
 ### Core Concepts
 
-Cherry-evals uses **Google's Agent Development Kit (ADK)** to model agent behavior as a **hierarchical structure of specialized agents**:
+Cherry Evals uses **Google's Agent Development Kit (ADK)** to model agent behavior as a **hierarchical structure of specialized agents**:
 
 - **Agent Types**:
   - **LlmAgent**: Single-purpose agents that perform specific tasks using an LLM
@@ -36,91 +36,130 @@ Cherry-evals uses **Google's Agent Development Kit (ADK)** to model agent behavi
 
 - **Workflow Pattern, Agentic Behavior**:
   - The overall pipeline is a **sequential workflow** (deterministic order, no surprise loops)
-  - Inside specific agents, we use LLMs to make **local decisions** (query understanding, search strategy selection, format conversion)
-  - Sub-workflows can run in **parallel** for efficiency (e.g., multiple search strategies)
+  - Inside specific agents, we use LLMs to make **local decisions** (query understanding, ranking, format conversion)
+  - Sub-workflows can run in **parallel** for efficiency (e.g., hybrid search)
+  - **Important**: Sub-agents are configured with `disallow_transfer_to_parent=True`. This ensures they always return control to the root agent after each turn, maintaining the router's authority.
 
 - **Prompts**:
-  - Prompts are stored in the `cherry_evals/prompts/` directory as Python constants
+  - Prompts are stored in the `agents/prompts/` directory as Python constants
   - Each agent has a `DESCRIPTION` constant and LLM agents have also an `INSTRUCTIONS` constant
   - Prompts should be explicit, not contradictory nor ambiguous
   - Use **bold** and CAPITAL letters to increase attention on specific words or phrases
 
 ### Agent Structure
 
-Cherry-evals implements the following agent hierarchy (to be expanded):
+Cherry Evals implements the following agent hierarchy:
 
 ```
-root_search_agent (SequentialAgent)
+search_agent (SequentialAgent)
 ├── query_understanding_agent (LlmAgent)
-│   └── Understands user search intent and expands queries
-│   └── Tools: [query analysis, intent classification]
-├── search_orchestration_agent (ParallelAgent)
-│   ├── keyword_search_agent (LlmAgent)
-│   │   └── Performs keyword-based search
-│   │   └── Tools: [keyword_search, dataset_filtering]
-│   ├── semantic_search_agent (LlmAgent)
-│   │   └── Performs semantic search via RAG backend
-│   │   └── Tools: [vector_search, embedding_generation]
-│   └── topic_search_agent (LlmAgent)
-│       └── Performs topic-based clustering and filtering
-│       └── Tools: [topic_clustering, topic_filtering]
-└── result_merging_agent (LlmAgent)
-    └── Merges and ranks results from multiple search strategies
-    └── Tools: [result_ranking, deduplication]
+│   └── Parses user intent, extracts filters and constraints
+│   └── Tools: [query parsing, filter extraction]
+├── query_expansion_agent (LlmAgent)
+│   └── Expands query with synonyms and related concepts
+│   └── Tools: [synonym lookup, concept expansion]
+└── result_ranking_agent (LlmAgent)
+    └── Re-ranks results by relevance and diversity
+    └── Tools: [scoring, deduplication]
+
+converter_agent (LlmAgent)
+└── Generates custom converter code from natural language
+└── Tools: [code generation, format validation]
+
+collection_agent (LlmAgent)
+└── Intelligent suggestions for collection curation
+└── Tools: [similarity search, coverage analysis]
 ```
 
-#### 1. Root Search Agent
+#### 1. Search Agent
 - **Type**: SequentialAgent
-- **Purpose**: Main orchestrator for search operations
-- **Sub-agents**: query_understanding_agent → search_orchestration_agent → result_merging_agent
-- **File**: `cherry_evals/agents/search.py`
-- **Prompt**: `cherry_evals/prompts/search_agent.py`
+- **Purpose**: Main orchestrator for intelligent search over evaluation datasets
+- **Sub-agents**: query_understanding_agent → query_expansion_agent → result_ranking_agent
+- **File**: `agents/agent.py`
+- **Prompt**: `agents/prompts/search_agent.py`
 
 #### 2. Query Understanding Agent
 - **Type**: LlmAgent
-- **Purpose**: Understands user search intent and expands queries for better results
-- **Tools**: Query analysis, intent classification
-- **File**: `cherry_evals/agents/search.py`
-- **Prompt**: `cherry_evals/prompts/query_understanding_agent.py`
+- **Purpose**: Parses user search queries to extract intent, filters, and constraints
+- **Tools**: Query parsing, filter extraction
+- **File**: `agents/agent.py`
+- **Prompt**: `agents/prompts/query_understanding_agent.py`
 
-#### 3. Search Orchestration Agent
-- **Type**: ParallelAgent
-- **Purpose**: Executes multiple search strategies in parallel
-- **Sub-agents**: keyword_search_agent, semantic_search_agent, topic_search_agent
-- **File**: `cherry_evals/agents/search.py`
-- **Prompt**: `cherry_evals/prompts/search_orchestration_agent.py`
-
-#### 4. Result Merging Agent
+#### 3. Query Expansion Agent
 - **Type**: LlmAgent
-- **Purpose**: Merges results from multiple search strategies and ranks them
-- **Tools**: Result ranking, deduplication
-- **File**: `cherry_evals/agents/search.py`
-- **Prompt**: `cherry_evals/prompts/result_merging_agent.py`
+- **Purpose**: Expands queries with synonyms, related concepts, and alternative phrasings
+- **Tools**: Synonym lookup, concept expansion
+- **File**: `agents/agent.py`
+- **Prompt**: `agents/prompts/query_expansion_agent.py`
 
-#### 5. Format Conversion Agent (Future)
+#### 4. Result Ranking Agent
 - **Type**: LlmAgent
-- **Purpose**: Converts evaluation data between formats using predefined or custom converters
-- **Tools**: Format converters, validation
-- **File**: `cherry_evals/agents/conversion.py`
-- **Prompt**: `cherry_evals/prompts/conversion_agent.py`
+- **Purpose**: Re-ranks search results by relevance, diversity, and user preferences
+- **Tools**: Scoring, deduplication
+- **File**: `agents/agent.py`
+- **Prompt**: `agents/prompts/result_ranking_agent.py`
+
+#### 5. Converter Agent
+- **Type**: LlmAgent
+- **Purpose**: Generates custom format converters from natural language descriptions
+- **Tools**: Code generation, format validation
+- **File**: `agents/agent.py`
+- **Prompt**: `agents/prompts/converter_agent.py`
+
+#### 6. Collection Agent
+- **Type**: LlmAgent
+- **Purpose**: Provides intelligent suggestions for collection curation and gap analysis
+- **Tools**: Similarity search, coverage analysis
+- **File**: `agents/agent.py`
+- **Prompt**: `agents/prompts/collection_agent.py`
 
 ---
 
 ## Tech Stack
 
 - **Python**: 3.13
+- **Backend Framework**: [FastAPI](https://fastapi.tiangolo.com/)
 - **Agent Framework**: [Google ADK (Agent Development Kit)](https://github.com/google/adk-python)
 - **LLM Models**: Gemini 2.5 Flash (via ADK native integration)
-- **Backend**: FastAPI
-- **RAG Solutions** (to be compared):
-  - Qdrant (vector database)
-  - Nim RAG
-  - GCP RAG engine
-  - Redis
+- **Vector Database**: [Qdrant](https://qdrant.tech/)
+- **Relational Database**: PostgreSQL with [SQLAlchemy](https://www.sqlalchemy.org/) ORM
 - **Package Manager**: [uv](https://docs.astral.sh/uv/)
 - **Linting/Formatting**: [Ruff](https://github.com/astral-sh/ruff) + [pre-commit](https://pre-commit.com/)
-- **Data Storage**: JSON files for collections, metadata, and configuration
-- **Observability**: Local Langfuse server for tracing, latency monitoring, agent steps
+- **Observability**: Langfuse for agent tracing and monitoring
+
+---
+
+## Project Structure
+
+```
+cherry-evals/
+├── api/                    # FastAPI REST API layer
+│   ├── routes/             # Endpoint definitions (datasets, search, collections, convert, export)
+│   ├── models/             # Pydantic request/response schemas
+│   └── deps.py             # Dependency injection
+│
+├── agents/                 # Google ADK agent definitions
+│   ├── agent.py            # Agent hierarchy and orchestration
+│   ├── prompts/            # Agent instructions as Python constants
+│   └── tools/              # Agent tools and utilities
+│
+├── core/                   # Business logic and domain operations
+│   ├── ingest/             # Dataset ingestion pipelines (MMLU, HumanEval, etc.)
+│   ├── search/             # Search implementations (keyword, semantic, hybrid)
+│   ├── convert/            # Format converters
+│   └── export/             # Export adapters (Langfuse, Phoenix, local)
+│
+├── db/                     # Database layer
+│   ├── postgres/           # PostgreSQL models, queries, migrations
+│   └── qdrant/             # Qdrant vector DB operations
+│
+├── data/                   # Local data storage
+│   ├── raw/                # Raw downloaded datasets
+│   ├── processed/          # Normalized cached datasets
+│   └── exports/            # User export outputs
+│
+└── tests/                  # Test suite (unit, integration, system)
+```
 
 ---
 
@@ -140,17 +179,25 @@ uv remove <package>
 uv add --upgrade <package>
 
 # List dependencies
-uv run uv pip list
+uv pip list
 
-# Run the FastAPI backend
-uv run uvicorn cherry_evals.api.main:app --reload
+# Run the FastAPI server (development mode)
+uv run fastapi dev api/main.py
 
-# Run ADK agents directly (for testing)
-uv run adk run cherry-evals-adk
+# Run the FastAPI server (production mode)
+uv run fastapi run api/main.py
+
+# Run agents with ADK CLI (for testing)
+uv run adk run agents
+
+# Run agents with ADK web UI (for debugging)
 uv run adk web
 
 # Run the test suite
 uv run pytest
+
+# Run tests with coverage
+uv run pytest --cov=. --cov-report=term-missing
 
 # Lint & format with Ruff
 uv run ruff check .
@@ -161,6 +208,10 @@ uv run pre-commit install
 
 # Run all pre-commit hooks manually
 uv run pre-commit run --all-files
+
+# Database migrations (if using Alembic)
+uv run alembic upgrade head
+uv run alembic revision --autogenerate -m "description"
 ```
 
 ---
@@ -179,12 +230,8 @@ The IDE agent (you) will see a lot of context and may try to "help" too much.
 
 Before designing or implementing anything:
 
-* Inspect the existing agents under `cherry_evals/agents/`
-* Check [README.md](./README.md) and the relevant docs under `docs/` for the latest instructions:
-  - [docs/architecture.md](./docs/architecture.md) (when created)
-  - [docs/features/](./docs/features/) (when created)
-  - [docs/files.md](./docs/files.md) (when created)
-  - [ROADMAP.md](./ROADMAP.md)
+* Inspect the existing agents under `agents/`
+* Check [README.md](./README.md) and the relevant docs under `docs/` for the latest instructions
 * Maintain consistency with:
   * naming conventions
   * logging patterns
@@ -203,7 +250,7 @@ Before starting to work on something new:
 If requirements are ambiguous:
 
 * Ask a focused question:
-  *"Should the semantic search use Qdrant or GCP native RAG for this implementation?"*
+  *"Should the search agent expand synonyms before or after applying filters?"*
 * Avoid guessing when design decisions affect:
   * data model
   * public APIs
@@ -214,11 +261,10 @@ If requirements are ambiguous:
 Always run tests after any code change:
 
 * Add/modify/delete **unit tests** for any new function or class
-* Add/modify/delete **integration tests** for agents and tools
+* Add/modify/delete **integration tests** for agents, tools, and API endpoints
 * Add/modify/delete **system tests** for the entire agent workflow with simple, medium, and complex scenarios
 
 Keep tests fast (whenever possible) and **always** deterministic.
-Ensure to test search results AND conversion outputs in system tests.
 
 **DO NOT CHEAT** if the tests fail. If the issue lies in the code, you MUST fix the code and not loosen the tests.
 
@@ -237,7 +283,7 @@ If you are unsure about whether a function / code section works as expected:
 
 ---
 
-## ADK Best Practices (Cherry-evals-Specific)
+## ADK Best Practices (Cherry Evals-Specific)
 
 Referencing community and official guidance on ADK usage.
 
@@ -247,8 +293,8 @@ Referencing community and official guidance on ADK usage.
 * Avoid creating "god agents" that do too many things
 * If an agent's instructions become too complex (>100 lines), consider splitting it
 * Example:
-  * ✅ GOOD: `keyword_search_agent` only performs keyword search
-  * ❌ BAD: `search_agent` also handles format conversion
+  * ✅ GOOD: `query_understanding_agent` only parses queries
+  * ❌ BAD: `query_understanding_agent` also ranks results
 
 ### 2. Explicit State Management
 
@@ -270,10 +316,8 @@ Referencing community and official guidance on ADK usage.
 * For LLM-powered decisions → use LlmAgent
 * For orchestration → use SequentialAgent/ParallelAgent
 * Example:
-  * ✅ GOOD: Use tool for "save collection to file"
-  * ❌ BAD: Create an agent for "save collection to file"
-  * ✅ GOOD: Tool has hard coded subdir `data/collections/{collection_id}` where collection_id comes from `auth`
-  * ❌ BAD: Tool has hard coded subdir `data/collections/{collection_id}` where collection_id comes from `parent_agent`
+  * ✅ GOOD: Use tool for "save collection to database"
+  * ❌ BAD: Create an agent for "save collection to database"
 
 ### 4. Controlled Delegation
 
@@ -286,7 +330,7 @@ Referencing community and official guidance on ADK usage.
 * Begin with simple, flat structures (1-2 levels)
 * Add layers as new features require it
 * Avoid prematurely splitting into many specialized agents
-* Current cherry-evals structure (3 levels) is appropriate for MVP
+* Current Cherry Evals structure (2-3 levels) is appropriate for MVP
 
 ### 6. Separate Tooling from Orchestration
 
@@ -299,13 +343,13 @@ Referencing community and official guidance on ADK usage.
 
 Example structure:
 ```python
-# tools/search.py
-def keyword_search(query: str, dataset_id: str | None = None) -> list[dict]:
+# core/search/keyword.py
+def keyword_search(query: str, filters: dict) -> list[dict]:
     """Pure Python tool for keyword search"""
     ...
 
-# agents/search.py
-keyword_search_agent = LlmAgent(
+# agents/agent.py
+search_agent = LlmAgent(
     ...,
     tools=[keyword_search],  # Agent uses tool, doesn't implement it
 )
@@ -315,32 +359,26 @@ keyword_search_agent = LlmAgent(
 
 * **Unit tests**: Test individual tools/functions
 * **Agent tests**: Test single agents with mocked dependencies
-* **Integration tests**: Test agent workflows (sequential/parallel)
-* **System tests**: Test entire root_search_agent end-to-end
+* **Integration tests**: Test agent workflows (sequential/parallel) and API endpoints
+* **System tests**: Test entire search/export pipelines end-to-end
 
-### 8. Version track collections and other JSON files
+### 8. Prompts as Code
 
-* Ensure edited JSON files (collections, metadata, config, etc.) are version tracked
-* Changes should be easy to inspect and revert
-* Use git for versioning, not custom solutions
-
-### 9. Prompts as Code
-
-* Store prompts as Python constants in `prompts/` directory
+* Store prompts as Python constants in `agents/prompts/` directory
 * Each agent should have:
   * `{AGENT_NAME}_DESCRIPTION`: Brief purpose statement (when to use it)
   * `{AGENT_NAME}_INSTRUCTIONS`: Detailed behavior specification (what it should do, and how)
 * Use XML-like tags in instructions for structure when needed
 * Keep prompts explicit, unambiguous, and well-formatted
 
-### 10. Security and Identity
+### 9. Security and Identity
 
 * When agents use tools to interact with external systems:
   * Use the agent's own identity, not impersonation
   * Explicitly authorize the agent in external access policies
   * Constrain actions to those intended by the developer
-* Never expose user credentials or sensitive data in prompts
-* Sanitize inputs before passing to external tools
+* Never expose API keys or sensitive data in prompts
+* Sanitize inputs before passing to external tools (especially for code generation)
 
 ---
 
@@ -350,22 +388,23 @@ keyword_search_agent = LlmAgent(
   * `snake_case` for functions, variables, and tools
   * `PascalCase` for classes and Pydantic models
   * `SCREAMING_SNAKE_CASE` for constants (including prompts)
-  * Agent names: `{purpose}_agent` (e.g., `keyword_search_agent`)
+  * Agent names: `{purpose}_agent` (e.g., `query_understanding_agent`)
 
 * **Files**:
   * One main concept per file
-  * Agent definitions: `cherry_evals/agents/{category}.py`
-  * Prompts: `cherry_evals/prompts/{agent_name}.py`
-  * Tools: `cherry_evals/tools/{tool_category}.py`
+  * Agent definitions: `agents/agent.py`
+  * Prompts: `agents/prompts/{agent_name}.py`
+  * Tools: `agents/tools/{tool_category}.py`
+  * API routes: `api/routes/{resource}.py`
   * Keep functions under ~100–150 lines if possible
 
 * **Imports**:
   * Use absolute imports for ADK and external packages
-  * Use relative imports within `cherry_evals/` package
+  * Use relative imports within packages
   * Group imports: stdlib → third-party → local
   * Sort them by import pkg.module, then from pkg.module import fcn
   * Then, sort alphabetically
-  * Subgroup imports of each group and add comments on top (e.g. "# adk imports", "# cherry-evals prompt imports", ...)
+  * Subgroup imports of each group and add comments on top (e.g. "# adk imports", "# cherry evals imports", ...)
 
 * **Comments**:
   * Explain *why* something is done, not *what* it does
@@ -374,24 +413,24 @@ keyword_search_agent = LlmAgent(
 
 * **Type Hints**:
   * Use type hints for all function signatures
-  * Use Pydantic models for structured data
+  * Use Pydantic models for structured data (especially API schemas)
   * Use `TypedDict` for simple dictionaries with known keys
 
 ---
 
-## Extending Cherry-evals (Post-MVP Patterns)
+## Extending Cherry Evals
 
 When adding new features:
 
 ### Adding New Agents
 
-1. **Create prompt file**: `cherry_evals/prompts/new_agent.py`
+1. **Create prompt file**: `agents/prompts/new_agent.py`
    ```python
    NEW_AGENT_DESCRIPTION = """..."""
    NEW_AGENT_INSTRUCTIONS = """..."""
    ```
 
-2. **Define agent**: In `cherry_evals/agents/{category}.py`
+2. **Define agent**: In `agents/agent.py`
    ```python
    new_agent = LlmAgent(
        model=GEMINI_2_5_FLASH_MODEL,
@@ -408,26 +447,31 @@ When adding new features:
 
 ### Adding New Tools
 
-1. **Create tool file**: `cherry_evals/tools/{category}.py`
+1. **Create tool file**: `agents/tools/{category}.py`
 2. **Implement function**: Pure Python, well-typed, with docstring
 3. **Register with agent**: Add to `tools=[...]` list
 4. **Test**: Write unit tests for the tool
 
-### Multi-Agent Structures
+### Adding New API Endpoints
 
-* For complex features, consider:
-  * **SequentialAgent**: When tasks must happen in order
-  * **ParallelAgent**: When tasks can run concurrently
-  * **Loop agents**: When sub agents need to be invoked repeatedly
+1. **Create route file**: `api/routes/{resource}.py`
+2. **Define Pydantic models**: `api/models/{resource}.py`
+3. **Register router**: In `api/main.py`
+4. **Test**: Write integration tests for the endpoint
 
-* Document agent relationships clearly
+### Adding New Dataset Ingestion
 
-### RAG Backend Integration
+1. **Create ingestion module**: `core/ingest/{dataset_name}.py`
+2. **Implement pipeline**: Download, normalize, embed, store
+3. **Register in CLI**: Add command for manual ingestion
+4. **Test**: Write tests with sample data
 
-* Support multiple RAG backends (Qdrant, Nim, GCP)
-* Use environment variables to select backend
-* Abstract backend differences behind a common interface
-* Compare performance and features across backends
+### Adding New Export Formats
+
+1. **Create converter**: `core/convert/{format_name}.py`
+2. **Implement transformation**: Input schema → output schema
+3. **Register in export service**: `core/export/`
+4. **Test**: Write tests with sample collections
 
 ---
 
@@ -438,15 +482,20 @@ When adding new features:
 ```bash
 # Google Gemini API Key (required)
 GOOGLE_API_KEY=your-google-api-key
+# Disable VertexAI by default, use Gemini API instead for early development
 GOOGLE_GENAI_USE_VERTEXAI=0
 
-# RAG backend selection
-CHERRY_RAG_BACKEND=qdrant  # Options: qdrant, nim, gcp
-QDRANT_URL=http://localhost:6333  # If using Qdrant
-# GCP credentials via gcloud CLI or service account JSON
+# Database connections
+DATABASE_URL=postgresql://user:pass@localhost:5432/cherry_evals
+QDRANT_URL=http://localhost:6333
+
+# Langfuse tracing (optional)
+LANGFUSE_PUBLIC_KEY=your-public-key
+LANGFUSE_SECRET_KEY=your-secret-key
+LANGFUSE_HOST=https://cloud.langfuse.com
 
 # Optional overrides
-CHERRY_DATA_DIR=~/.cherry-evals  # Default data directory
+CHERRY_DATA_DIR=./data           # Default data directory
 CHERRY_LOG_LEVEL=INFO            # Logging level
 ```
 
@@ -454,12 +503,13 @@ CHERRY_LOG_LEVEL=INFO            # Logging level
 
 1. **Setup**: `uv sync` to ensure dependencies are up to date, add/remove with `uv add`, `uv remove`
 2. **Branch**: Create a feature branch for your work
-3. **Implement**: Make small, focused changes to agents/tools/prompts
+3. **Implement**: Make small, focused changes to agents/tools/prompts/API
 4. **Test**: Run tests locally (`uv run pytest`)
 5. **Lint**: Run `uv run ruff check . && uv run ruff format .`
-6. **Vibe test**: Run `uv run uvicorn cherry_evals.api.main:app --reload` or `uv run adk web`
-7. **Document**: Update relevant docs (`AGENTS.md`, `docs/`, docstrings)
-8. **Commit**: **All commits must** follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format.
+6. **API test**: Run `uv run fastapi dev api/main.py` and test with curl/Postman
+7. **Agent test**: Run `uv run adk web` to debug agent behavior
+8. **Document**: Update relevant docs (`AGENTS.md`, `docs/`, docstrings)
+9. **Commit**: **All commits must** follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format.
     * **Format:**
       ```
       <type>(<scope>): <description>
@@ -469,14 +519,14 @@ CHERRY_LOG_LEVEL=INFO            # Logging level
     * **Common types:** `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `style`, `build`, `ci`, `revert`
     * **Examples:**
       ```
-      feat(agents): Add semantic search agent with Qdrant backend
-      fix(search): Prevent duplicate results in merged search
-      refactor(tools): Unify RAG backend interface
+      feat(search): Add semantic search with Qdrant
+      fix(export): Handle empty collections gracefully
+      refactor(agents): Split query agent into understanding + expansion
       ```
     * **Rationale:** Conventional commits enable automated changelog generation and version management.
 
-9. **Pre-commit**: Hooks will run automatically on commit
-10. **Review**: Create PR and request review
+10. **Pre-commit**: Hooks will run automatically on commit
+11. **Review**: Create PR and request review
 
 ---
 
@@ -490,7 +540,7 @@ CHERRY_LOG_LEVEL=INFO            # Logging level
 
 **Example**:
 * ❌ BAD: 10 micro-agents for search
-* ✅ GOOD: 1 `search_orchestration_agent` with clear instructions
+* ✅ GOOD: 3 agents (understand → expand → rank) with clear responsibilities
 
 ### 2. Unclear Agent Boundaries
 
@@ -499,8 +549,8 @@ CHERRY_LOG_LEVEL=INFO            # Logging level
 **Solution**: Define clear, non-overlapping purposes in agent descriptions.
 
 **Example**:
-* ❌ BAD: Both `query_understanding_agent` and `search_orchestration_agent` perform search
-* ✅ GOOD: Only `query_understanding_agent` understands queries, `search_orchestration_agent` executes searches
+* ❌ BAD: Both `query_understanding_agent` and `result_ranking_agent` filter results
+* ✅ GOOD: Only `query_understanding_agent` extracts filters, `result_ranking_agent` ranks
 
 ### 3. Excessive Delegation
 
@@ -509,8 +559,8 @@ CHERRY_LOG_LEVEL=INFO            # Logging level
 **Solution**: Keep hierarchy shallow (<4 levels). Use tools instead of agents for deterministic tasks.
 
 **Example**:
-* ❌ BAD: `root → orchestrator → coordinator → worker → executor`
-* ✅ GOOD: `root → query_understanding → search_orchestration (parallel) → result_merging`
+* ❌ BAD: `search → orchestrator → coordinator → worker → executor`
+* ✅ GOOD: `search → understand → expand → rank`
 
 ### 4. State Management Confusion
 
@@ -531,19 +581,19 @@ CHERRY_LOG_LEVEL=INFO            # Logging level
 **Example**:
 ```python
 # In tools
-def keyword_search(query: str, dataset_id: str | None = None) -> list[dict]:
+def search_qdrant(query: str, limit: int) -> list[dict]:
     try:
-        return perform_search(query, dataset_id)
-    except SearchError as e:
-        logger.warning(f"Search failed: {e}")
+        return qdrant_client.search(query, limit=limit)
+    except QdrantException as e:
+        logger.warning(f"Qdrant search failed: {e}")
         return []  # Return empty results instead of crashing
 
 # In agent instructions
 """
-If the search fails:
-- Log the error
-- Return empty results
-- Continue with the workflow
+If the search tool returns empty results:
+- Log the issue
+- Inform the user no results were found
+- Suggest query modifications
 """
 ```
 
@@ -555,9 +605,9 @@ If the search fails:
 
 **Example**:
 ```python
-logger.info(f"Query understanding agent: Processed query '{query}'")
-logger.debug(f"Expanded query: {expanded_query}")
-logger.warning(f"Search agent: No results found for query")
+logger.info(f"Search agent: Processing query '{query}'")
+logger.debug(f"Extracted filters: {filters}")
+logger.warning(f"Search agent: No results found for expanded query")
 ```
 
 ### 7. Hidden Side-Effects
@@ -568,13 +618,13 @@ logger.warning(f"Search agent: No results found for query")
 
 **Example**:
 ```python
-def save_collection(collection_id: str, examples: list[dict]) -> None:
+def export_collection(collection_id: str, format: str) -> str:
     """
-    Saves collection to disk.
+    Exports collection to specified format.
 
     Side effects:
-    - Writes to {CHERRY_DATA_DIR}/collections/{collection_id}.json
-    - Creates backup in {CHERRY_DATA_DIR}/collections/backups/
+    - Writes to {CHERRY_DATA_DIR}/exports/{collection_id}.{format}
+    - Updates export_history table in PostgreSQL
     """
     ...
 ```
@@ -587,7 +637,7 @@ def save_collection(collection_id: str, examples: list[dict]) -> None:
 
 **Example**:
 * ❌ BAD: Hardcoded strings scattered across codebase
-* ✅ GOOD: Constants in `prompts/` directory, version controlled
+* ✅ GOOD: Constants in `agents/prompts/` directory, version controlled
 
 ### 9. Tool vs Agent Confusion
 
@@ -599,8 +649,8 @@ def save_collection(collection_id: str, examples: list[dict]) -> None:
 * Orchestration needed? → Sequential/Parallel Agent
 
 **Example**:
-* ❌ BAD: `file_save_agent = LlmAgent(...)` for saving JSON
-* ✅ GOOD: `save_collection(path, data)` tool
+* ❌ BAD: `database_save_agent = LlmAgent(...)` for saving to PostgreSQL
+* ✅ GOOD: `save_collection(collection_id, data)` tool
 
 ### 10. Premature Optimization
 
@@ -609,7 +659,7 @@ def save_collection(collection_id: str, examples: list[dict]) -> None:
 **Solution**: Build first, measure, then optimize. Use Langfuse for observability.
 
 **Example**:
-1. Build working agent workflow
+1. Build working search pipeline
 2. Instrument with logging/tracing
 3. Identify slow agents/tools
 4. Optimize specific bottlenecks (caching, parallelization, etc.)
@@ -625,9 +675,9 @@ Test individual tools and functions in isolation:
 ```python
 def test_keyword_search():
     """Test keyword search tool"""
-    results = keyword_search("test query", dataset_id="test_dataset")
+    results = keyword_search("machine learning", filters={"task_type": "classification"})
     assert len(results) > 0
-    assert "test" in results[0]["text"].lower()
+    assert all(r["task_type"] == "classification" for r in results)
 ```
 
 ### Agent Tests
@@ -636,58 +686,55 @@ Test individual agents with mocked dependencies:
 
 ```python
 @pytest.mark.asyncio
-async def test_keyword_search_agent():
-    """Test keyword search agent with mock tools"""
-    agent = keyword_search_agent
-    input_data = {"query": "test query", "dataset_id": "test_dataset"}
+async def test_query_understanding_agent():
+    """Test query understanding agent with mock tools"""
+    agent = query_understanding_agent
+    input_data = {"query": "find math problems about algebra for testing GPT-4"}
 
-    # Mock tools
-    with patch("tools.keyword_search", return_value=[{"id": "1", "text": "test"}]):
-        result = await agent.run(input_data)
+    result = await agent.run(input_data)
 
-        # Verify agent called search tool
-        assert len(result["results"]) > 0
+    assert "intent" in result
+    assert "filters" in result
+    assert result["filters"]["task_type"] == "math"
 ```
 
 ### Integration Tests
 
-Test agent workflows (sequential/parallel):
+Test API endpoints and agent workflows:
 
 ```python
 @pytest.mark.asyncio
-async def test_search_workflow():
-    """Test parallel search orchestration"""
-    search_agent = search_orchestration_agent  # ParallelAgent
-    input_data = {"query": "test query"}
+async def test_search_endpoint():
+    """Test search API endpoint"""
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        response = await client.post(
+            "/api/search",
+            json={"query": "reasoning tasks", "limit": 10}
+        )
 
-    result = await search_agent.run(input_data)
-
-    # All sub-agents should have run
-    assert "keyword_results" in result
-    assert "semantic_results" in result
-    assert "topic_results" in result
+    assert response.status_code == 200
+    assert len(response.json()["results"]) <= 10
 ```
 
 ### System Tests
 
-Test entire root_search_agent end-to-end:
+Test entire workflows end-to-end:
 
 ```python
 @pytest.mark.asyncio
-async def test_full_search_flow():
-    """Test complete search workflow"""
-    root = root_search_agent
-    query = "test evaluation query"
+async def test_search_to_export_flow():
+    """Test complete search → select → export flow"""
+    # Search
+    search_results = await search_service.search("coding problems")
+    assert len(search_results) > 0
 
-    result = await root.run({"query": query})
+    # Create collection
+    collection = await collection_service.create("test_collection")
+    await collection_service.add_items(collection.id, search_results[:5])
 
-    # Verify all stages completed
-    assert "understood_query" in result
-    assert "search_results" in result
-    assert "merged_results" in result
-
-    # Verify result quality
-    assert len(result["merged_results"]) > 0
+    # Export
+    export_path = await export_service.export(collection.id, format="jsonl")
+    assert Path(export_path).exists()
 ```
 
 ---
@@ -698,10 +745,10 @@ async def test_full_search_flow():
 
 ```bash
 export CHERRY_LOG_LEVEL=DEBUG
-uv run uvicorn cherry_evals.api.main:app --reload
+uv run fastapi dev api/main.py
 ```
 
-### 2. Use ADK Web UI for Tracing
+### 2. Use ADK Web UI for Agent Tracing
 
 ```bash
 uv run adk web
@@ -715,7 +762,7 @@ Navigate to the UI to see:
 
 ### 3. Langfuse for Production Monitoring
 
-Set up local Langfuse server for:
+Set up Langfuse for:
 * End-to-end tracing
 * Latency analysis
 * Agent performance metrics
@@ -726,7 +773,7 @@ Set up local Langfuse server for:
 Since agents are Python code, you can use standard debugging:
 
 ```python
-# In agents or tools
+# In agent.py or tools
 import pdb; pdb.set_trace()
 ```
 
@@ -740,12 +787,26 @@ from google import genai
 client = genai.Client(api_key="...")
 response = client.models.generate_content(
     model="gemini-2.5-flash",
-    contents="Test query",
+    contents="Test query: find math problems",
     config={
         "system_instruction": YOUR_PROMPT_INSTRUCTIONS,
     }
 )
 print(response.text)
+```
+
+### 6. Test API Endpoints with curl
+
+```bash
+# Search
+curl -X POST http://localhost:8000/api/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "reasoning tasks", "limit": 10}'
+
+# Create collection
+curl -X POST http://localhost:8000/api/collections \
+  -H "Content-Type: application/json" \
+  -d '{"name": "my_collection"}'
 ```
 
 ---
@@ -755,15 +816,14 @@ print(response.text)
 * **ADK Documentation**: [github.com/google/adk-python](https://github.com/google/adk-python)
 * **ADK Samples**: [github.com/google/adk-samples](https://github.com/google/adk-samples)
 * **Gemini API Docs**: [ai.google.dev/gemini-api/docs](https://ai.google.dev/gemini-api/docs)
-* **Cherry-evals Roadmap**: [ROADMAP.md](./ROADMAP.md)
-* **Qdrant Docs**: [qdrant.tech/documentation](https://qdrant.tech/documentation)
-* **FastAPI Docs**: [fastapi.tiangolo.com](https://fastapi.tiangolo.com)
+* **FastAPI Docs**: [fastapi.tiangolo.com](https://fastapi.tiangolo.com/)
+* **Qdrant Docs**: [qdrant.tech/documentation](https://qdrant.tech/documentation/)
+* **Cherry Evals README**: [README.md](./README.md)
 
 ---
 
-Remember: **Cherry-evals' value comes from being transparent and reliable.**
+Remember: **Cherry Evals' value comes from making evaluation dataset curation simple and efficient.**
 
 Prioritize clarity over cleverness, traceability over magic, and small safe steps over big refactors.
 
-**Build agents that serve the user's search and evaluation needs — never the other way around.**
-
+**Build tools that serve the researcher's workflow — never the other way around.**
