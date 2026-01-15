@@ -6,9 +6,10 @@ from alembic import context
 
 # Import settings and models
 from cherry_evals.config import settings
-from db.postgres.base import Base
 
 # Import all models to ensure they are registered with Base.metadata
+from db.postgres import models  # noqa: F401
+from db.postgres.base import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
