@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     google_genai_use_vertexai: int = 0
 
     # Database connections
-    database_url: str = "postgresql://cherry:cherry@localhost:5432/cherry_evals"
+    database_url: str = "postgresql://cherry:cherry@localhost:5433/cherry_evals"
     qdrant_url: str = "http://localhost:6333"
 
     # Langfuse tracing (optional)

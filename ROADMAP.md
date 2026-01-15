@@ -15,20 +15,20 @@
 This is the minimum viable foundation. No agents, no fancy features — just the plumbing that everything else builds on.
 
 ### Infrastructure Setup
-- [ ] Initialize uv project with `pyproject.toml`
-- [ ] FastAPI project scaffold (`api/main.py`, `api/routes/`, `api/models/`)
-- [ ] PostgreSQL setup with SQLAlchemy models
-- [ ] Alembic migrations setup
-- [ ] Qdrant vector database setup (local Docker)
-- [ ] Docker Compose for local development (postgres, qdrant)
-- [ ] Pre-commit hooks (ruff check, ruff format)
-- [ ] Environment configuration (`.env.example`, `pydantic-settings`)
+- [x] Initialize uv project with `pyproject.toml`
+- [x] FastAPI project scaffold (`api/main.py`, `api/routes/`, `api/models/`)
+- [x] PostgreSQL setup with SQLAlchemy models
+- [x] Alembic migrations setup
+- [x] Qdrant vector database setup (local Docker)
+- [x] Docker Compose for local development (postgres, qdrant)
+- [x] Pre-commit hooks (ruff check, ruff format)
+- [x] Environment configuration (`.env.example`, `pydantic-settings`)
 
 ### Data Models
-- [ ] `Example` schema (question, answer, choices, metadata)
-- [ ] `Dataset` schema (name, source, license, task_type, description, stats)
-- [ ] `Collection` schema (name, description, user_id, created_at)
-- [ ] `CollectionExample` join table (collection_id, example_id, added_at)
+- [x] `Example` schema (question, answer, choices, example_metadata)
+- [x] `Dataset` schema (name, source, license, task_type, description, stats)
+- [x] `Collection` schema (name, description, user_id, created_at)
+- [x] `CollectionExample` join table (collection_id, example_id, added_at)
 
 ### First Dataset: MMLU
 - [ ] Download MMLU from HuggingFace
@@ -40,7 +40,7 @@ This is the minimum viable foundation. No agents, no fancy features — just the
 - [ ] Ingestion CLI command: `uv run python -m cherry_evals.cli ingest mmlu`
 
 ### Basic API Endpoints
-- [ ] `GET /health` - Health check
+- [x] `GET /health` - Health check
 - [ ] `GET /datasets` - List all datasets
 - [ ] `GET /datasets/{id}` - Get dataset details with stats
 - [ ] `GET /examples` - List examples with pagination
@@ -52,17 +52,19 @@ This is the minimum viable foundation. No agents, no fancy features — just the
 - [ ] Filter by dataset, subject
 
 ### Testing
-- [ ] Unit tests for data models
-- [ ] Unit tests for ingestion pipeline
-- [ ] Integration tests for API endpoints
-- [ ] Pytest configuration with fixtures
+- [x] Unit tests for data models
+- [x] Unit tests for configuration
+- [x] Integration tests for API endpoints
+- [x] Integration tests for database operations
+- [x] System tests for Docker Compose infrastructure
+- [x] Pytest configuration with fixtures
 
 ### Success Criteria
 - [ ] MMLU dataset fully ingested (~14k examples)
 - [ ] Can search examples by keyword
 - [ ] API returns paginated results
-- [ ] All tests passing
-- [ ] Docker Compose starts all services
+- [x] All tests passing (43 passed, 1 skipped)
+- [x] Docker Compose starts all services
 
 ---
 

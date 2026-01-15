@@ -44,7 +44,7 @@ class Example(Base):
     question: Mapped[str] = mapped_column(Text, nullable=False)
     answer: Mapped[str | None] = mapped_column(Text, nullable=True)
     choices: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
-    metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    example_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -54,9 +54,6 @@ class Example(Base):
     collection_examples: Mapped[list["CollectionExample"]] = relationship(
         "CollectionExample", back_populates="example"
     )
-
-    # Indexes
-    __table_args__ = (Index("ix_examples_dataset_id", "dataset_id"),)
 
 
 class Collection(Base):
@@ -105,8 +102,6 @@ class CollectionExample(Base):
 
     # Indexes and constraints
     __table_args__ = (
-        Index("ix_collection_examples_collection_id", "collection_id"),
-        Index("ix_collection_examples_example_id", "example_id"),
         Index(
             "ix_collection_examples_unique",
             "collection_id",
