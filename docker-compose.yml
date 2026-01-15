@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: cherry-evals-postgres
+    environment:
+      POSTGRES_USER: cherry
+      POSTGRES_PASSWORD: cherry
+      POSTGRES_DB: cherry_evals
+    ports:
+      - "5433:5432"
+    volumes:
+      - cherry_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cherry"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: cherry-evals-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - cherry_qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  cherry_postgres_data:
+  cherry_qdrant_data:

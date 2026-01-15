@@ -165,21 +165,48 @@ cherry-evals/
 
 ## Development Commands
 
-```bash
-# Install dependencies (creates venv + syncs)
-uv sync
+### Dependency Management
 
-# Add a new dependency
+**IMPORTANT**: Always use `uv add` to manage dependencies. **NEVER manually edit `pyproject.toml`** for dependencies.
+
+**Why?**
+- `uv add` ensures you get the **latest compatible versions**
+- It handles proper dependency resolution and conflict detection
+- It automatically updates the lock file
+- Manual edits can introduce version conflicts and broken dependencies
+
+**Examples:**
+```bash
+# Add a new dependency (always gets latest compatible version)
 uv add <package>
+
+# Add multiple dependencies at once
+uv add fastapi uvicorn sqlalchemy
+
+# Add a development dependency
+uv add --dev pytest ruff pre-commit
+
+# Add a dependency with version constraints (only when necessary)
+uv add "package>=1.0.0,<2.0.0"
 
 # Remove a dependency
 uv remove <package>
 
-# Update a dependency
+# Update a dependency to latest version
 uv add --upgrade <package>
+
+# Update all dependencies
+uv sync --upgrade
 
 # List dependencies
 uv pip list
+```
+
+### Other Commands
+
+```bash
+# Install dependencies (creates venv + syncs)
+uv sync
 
 # Run the FastAPI server (development mode)
 uv run fastapi dev api/main.py
