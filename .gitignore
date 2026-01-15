@@ -210,3 +210,6 @@ __marimo__/
 data/raw/
 data/processed/
 data/exports/
+
+# Claude Code settings (user-specific)
+.claude/
