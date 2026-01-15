@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     google_api_key: str = ""
     google_genai_use_vertexai: int = 0
 
+    # OpenAI API
+    openai_api_key: str = ""
+
     # Database connections
     database_url: str = "postgresql://cherry:cherry@localhost:5433/cherry_evals"
     qdrant_url: str = "http://localhost:6333"

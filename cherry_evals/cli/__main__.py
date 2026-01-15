@@ -2,6 +2,7 @@
 
 import click
 
+from cherry_evals.cli.embed import embed
 from cherry_evals.cli.ingest import ingest
 
 
@@ -12,6 +13,7 @@ def cli():
 
 
 cli.add_command(ingest)
+cli.add_command(embed)
 
 if __name__ == "__main__":
     cli()
