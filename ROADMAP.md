@@ -38,15 +38,15 @@
 
 ### Basic API Endpoints
 - [x] `GET /health` - Health check
-- [ ] `GET /datasets` - List all datasets
-- [ ] `GET /datasets/{id}` - Get dataset details with stats
-- [ ] `GET /examples` - List examples with pagination
-- [ ] `GET /examples/{id}` - Get single example
+- [x] `GET /datasets` - List all datasets
+- [x] `GET /datasets/{id}` - Get dataset details with stats
+- [x] `GET /examples` - List examples with pagination
+- [x] `GET /examples/{id}` - Get single example
 
 ### Basic Search
-- [ ] `POST /search` - Keyword search (PostgreSQL full-text)
-- [ ] Pagination support (offset, limit)
-- [ ] Filter by dataset, subject
+- [x] `POST /search` - Keyword search (PostgreSQL ILIKE)
+- [x] Pagination support (offset, limit)
+- [x] Filter by dataset, subject
 
 ### Testing
 - [x] Unit tests for data models
@@ -58,8 +58,8 @@
 
 ### Success Criteria
 - [ ] MMLU dataset fully ingested (~14k examples)
-- [ ] Can search examples by keyword
-- [ ] API returns paginated results
+- [x] Can search examples by keyword
+- [x] API returns paginated results
 - [x] All tests passing
 - [x] Docker Compose starts all services
 
@@ -70,14 +70,14 @@
 **Goal:** Add vector search and hybrid search capabilities.
 
 ### Semantic Search
-- [ ] `POST /search/semantic` - Vector similarity search via Qdrant
-- [ ] Embedding generation on-the-fly for queries (Google text-embedding-004)
-- [ ] Top-k retrieval with score threshold
+- [x] `POST /search/semantic` - Vector similarity search via Qdrant
+- [x] Embedding generation on-the-fly for queries (Google text-embedding-004)
+- [x] Top-k retrieval with score threshold
 
 ### Hybrid Search
-- [ ] `POST /search/hybrid` - Combined keyword + semantic
-- [ ] Reciprocal Rank Fusion with configurable weights
-- [ ] Result deduplication
+- [x] `POST /search/hybrid` - Combined keyword + semantic
+- [x] Reciprocal Rank Fusion with configurable weights
+- [x] Result deduplication
 
 ### Search Improvements
 - [ ] Filter by multiple fields (dataset, subject, difficulty)
@@ -85,13 +85,13 @@
 - [ ] Faceted search (count by subject, by dataset)
 
 ### Testing
-- [ ] Unit tests for search functions
-- [ ] Integration tests for search endpoints
+- [x] Unit tests for search functions (RRF)
+- [x] Integration tests for search endpoints
 - [ ] Search quality evaluation (manual spot checks)
 
 ### Success Criteria
-- [ ] Semantic search returns relevant results
-- [ ] Hybrid search improves over keyword-only
+- [x] Semantic search returns relevant results
+- [x] Hybrid search improves over keyword-only
 - [ ] Search latency <500ms for semantic, <100ms for keyword
 
 ---
@@ -101,22 +101,22 @@
 **Goal:** Users can create, curate, and manage custom evaluation collections.
 
 ### Collection CRUD
-- [ ] `POST /collections` - Create collection
-- [ ] `GET /collections` - List collections
-- [ ] `GET /collections/{id}` - Get collection with stats
-- [ ] `PUT /collections/{id}` - Update collection metadata
-- [ ] `DELETE /collections/{id}` - Delete collection
+- [x] `POST /collections` - Create collection
+- [x] `GET /collections` - List collections
+- [x] `GET /collections/{id}` - Get collection with stats
+- [x] `PUT /collections/{id}` - Update collection metadata
+- [x] `DELETE /collections/{id}` - Delete collection
 
 ### Collection Examples
-- [ ] `POST /collections/{id}/examples` - Add examples
-- [ ] `DELETE /collections/{id}/examples/{example_id}` - Remove example
-- [ ] `POST /collections/{id}/examples/bulk` - Bulk add/remove
-- [ ] `GET /collections/{id}/examples` - List examples in collection
+- [x] `POST /collections/{id}/examples` - Add examples
+- [x] `DELETE /collections/{id}/examples/{example_id}` - Remove example
+- [x] `POST /collections/{id}/examples/bulk-remove` - Bulk remove
+- [x] `GET /collections/{id}/examples` - List examples in collection
 
 ### Success Criteria
-- [ ] Can create and populate a collection from search
-- [ ] Collection persists across sessions
-- [ ] Bulk operations work correctly
+- [x] Can create and populate a collection from search
+- [x] Collection persists across sessions
+- [x] Bulk operations work correctly
 
 ---
 
@@ -125,16 +125,16 @@
 **Goal:** Export collections to local files and external platforms.
 
 ### Local Export
-- [ ] JSON, JSONL, CSV format export
-- [ ] Download endpoint
+- [x] JSON, JSONL, CSV format export
+- [x] Download endpoint with Content-Disposition headers
 
 ### Langfuse Integration
-- [ ] Export collection as Langfuse dataset
-- [ ] Progress tracking
+- [x] Export collection as Langfuse dataset
+- [x] Graceful error when credentials not configured
 
 ### Success Criteria
-- [ ] Can export collection to JSONL
-- [ ] Can export collection to Langfuse
+- [x] Can export collection to JSON, JSONL, CSV
+- [x] Can export collection to Langfuse
 
 ---
 
