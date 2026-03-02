@@ -2,16 +2,19 @@
 
 from fastapi import FastAPI
 
-from api.routes import health
+from api.routes import datasets, examples, health, search
 
 app = FastAPI(
     title="Cherry Evals",
-    description="Curated evaluation dataset search and export platform",
+    description="Search, cherry-pick, and export examples from public AI evaluation datasets.",
     version="0.1.0",
 )
 
 # Register routes
 app.include_router(health.router, tags=["health"])
+app.include_router(datasets.router)
+app.include_router(examples.router)
+app.include_router(search.router)
 
 
 @app.get("/")

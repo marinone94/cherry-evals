@@ -25,7 +25,10 @@ def test_app_metadata(test_client):
     openapi = response.json()
 
     assert openapi["info"]["title"] == "Cherry Evals"
-    assert openapi["info"]["description"] == "Curated evaluation dataset search and export platform"
+    assert (
+        openapi["info"]["description"]
+        == "Search, cherry-pick, and export examples from public AI evaluation datasets."
+    )
     assert openapi["info"]["version"] == "0.1.0"
 
 
