@@ -2,16 +2,16 @@
 
 import click
 
-from cherry_evals.embeddings.openai_embeddings import generate_embeddings_for_dataset
+from cherry_evals.embeddings.generate import generate_embeddings_for_dataset
 
 
 @click.command()
 @click.argument("dataset", type=str)
 @click.option(
     "--model",
-    default="text-embedding-3-small",
-    type=click.Choice(["text-embedding-3-small", "text-embedding-3-large"], case_sensitive=False),
-    help="OpenAI embedding model to use",
+    default="text-embedding-004",
+    type=click.Choice(["text-embedding-004"], case_sensitive=False),
+    help="Embedding model to use",
 )
 @click.option(
     "--batch-size",
@@ -40,7 +40,7 @@ def embed(dataset: str, model: str, batch_size: int, limit: int | None):
         stats = generate_embeddings_for_dataset(
             dataset_name=dataset, model=model, batch_size=batch_size, limit=limit
         )
-        click.echo(f"\n✓ Embedding generation complete: {stats}")
+        click.echo(f"\nDone: {stats['total_embeddings']} embeddings generated")
     except Exception as e:
-        click.echo(f"\n✗ Error generating embeddings: {e}", err=True)
+        click.echo(f"\nError generating embeddings: {e}", err=True)
         raise click.Abort()

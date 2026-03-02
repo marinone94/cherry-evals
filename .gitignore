@@ -213,3 +213,4 @@ data/exports/
 
 # Claude Code settings (user-specific)
 .claude/
+test.db

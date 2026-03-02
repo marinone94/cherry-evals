@@ -15,12 +15,15 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Google Gemini API
+    # Google GenAI API (embeddings + light LLM tasks)
     google_api_key: str = ""
     google_genai_use_vertexai: int = 0
 
-    # OpenAI API
-    openai_api_key: str = ""
+    # Anthropic API (reasoning tasks)
+    anthropic_api_key: str = ""
+
+    # Cerebras API (fast inference)
+    cerebras_api_key: str = ""
 
     # Database connections
     database_url: str = "postgresql://cherry:cherry@localhost:5433/cherry_evals"
@@ -29,7 +32,7 @@ class Settings(BaseSettings):
     # Langfuse tracing (optional)
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
-    langfuse_host: str = "https://cloud.langfuse.com"
+    langfuse_base_url: str = "https://cloud.langfuse.com"
 
     # Optional overrides
     cherry_data_dir: Path = Path("./data")
