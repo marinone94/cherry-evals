@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from api.main import app
@@ -29,7 +29,7 @@ def test_engine(test_settings):
     """Create a test database engine."""
     engine = create_engine(
         test_settings.database_url,
-        connect_args={"check_same_thread": False},  # Needed for SQLite
+        connect_args={"check_same_thread": False},
     )
     Base.metadata.create_all(bind=engine)
     yield engine
@@ -38,14 +38,31 @@ def test_engine(test_settings):
 
 @pytest.fixture(scope="function")
 def test_db_session(test_engine):
-    """Create a test database session with transaction rollback."""
-    testing_session_local = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+    """Create a test database session with proper transaction isolation.
+
+    Uses a nested transaction (savepoint) pattern so that endpoint commits
+    don't leak data between tests. The outer transaction is always rolled back.
+    """
+    connection = test_engine.connect()
+    transaction = connection.begin()
+
+    testing_session_local = sessionmaker(autocommit=False, autoflush=False, bind=connection)
     session = testing_session_local()
+
+    # When the session calls commit(), only commit the savepoint, not the outer transaction
+    nested = connection.begin_nested()
+
+    @event.listens_for(session, "after_transaction_end")
+    def end_savepoint(session, transaction):
+        nonlocal nested
+        if not nested.is_active:
+            nested = connection.begin_nested()
 
     yield session
 
-    session.rollback()
     session.close()
+    transaction.rollback()
+    connection.close()
 
 
 @pytest.fixture(scope="function")

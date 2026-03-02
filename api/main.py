@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI
 
-from api.routes import datasets, examples, health, search
+from api.routes import collections, datasets, examples, health, search
 
 app = FastAPI(
     title="Cherry Evals",
@@ -15,6 +15,7 @@ app.include_router(health.router, tags=["health"])
 app.include_router(datasets.router)
 app.include_router(examples.router)
 app.include_router(search.router)
+app.include_router(collections.router)
 
 
 @app.get("/")
