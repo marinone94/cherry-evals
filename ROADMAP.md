@@ -143,14 +143,17 @@
 **Goal:** AI agents can use Cherry Evals as a tool via MCP.
 
 ### MCP Tools
-- [ ] `search_examples` - Search across datasets
-- [ ] `create_collection` - Start a new collection
-- [ ] `add_to_collection` - Cherry-pick examples
-- [ ] `export_collection` - Export in specified format
-- [ ] `list_datasets` - Available datasets
+- [x] `search_examples` - Search across datasets (keyword)
+- [x] `create_collection` - Start a new collection
+- [x] `add_to_collection` - Cherry-pick examples
+- [x] `export_collection` - Export in specified format (JSON/JSONL/CSV)
+- [x] `list_datasets` - Available datasets
+- [x] `get_dataset` - Dataset details
+- [x] `list_collections` - List existing collections
+- [x] `get_collection` - Collection details with examples
 
 ### Success Criteria
-- [ ] Any MCP-compatible agent can search and curate eval sets
+- [x] Any MCP-compatible agent can search and curate eval sets
 - [ ] Agent usage generates curation traces for collective intelligence
 
 ---
