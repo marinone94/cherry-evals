@@ -211,6 +211,10 @@ data/raw/
 data/processed/
 data/exports/
 
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
 # Claude Code settings (user-specific)
 .claude/
 test.db

@@ -163,17 +163,19 @@
 **Goal:** Web UI for visual browsing, search, and collection management.
 
 ### Core UI
-- [ ] Search interface with filters
-- [ ] Example detail view
-- [ ] Collection builder (drag-and-drop or click-to-add)
-- [ ] Export wizard
+- [x] Search interface with keyword search
+- [x] Example cards with choices and metadata
+- [x] Collection builder (click-to-add from search results)
+- [x] Collection detail with remove and export
+- [x] Datasets listing page
+- [x] Export buttons (JSON, JSONL, CSV download)
 
 ### Tech
-- [ ] React + Tailwind
-- [ ] Connected to REST API
+- [x] React 19 + Tailwind CSS v4 + Vite
+- [x] Connected to REST API via proxy
 
 ### Success Criteria
-- [ ] Non-technical researchers can use Cherry Evals through the browser
+- [x] Non-technical researchers can use Cherry Evals through the browser
 
 ---
 
