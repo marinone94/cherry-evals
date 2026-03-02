@@ -38,3 +38,26 @@ class SearchResponse(BaseModel):
     query: str
     offset: int
     limit: int
+
+
+class SemanticSearchRequest(BaseModel):
+    """Request model for semantic search."""
+
+    query: str = Field(..., min_length=1, description="Natural language search query")
+    subject: str | None = Field(None, description="Filter by subject")
+    limit: int = Field(20, ge=1, le=100, description="Max results to return")
+    score_threshold: float | None = Field(None, ge=0, le=1, description="Min similarity score")
+    collection: str = Field("mmlu_embeddings", description="Qdrant collection to search")
+
+
+class HybridSearchRequest(BaseModel):
+    """Request model for hybrid search."""
+
+    query: str = Field(..., min_length=1, description="Search query string")
+    dataset: str | None = Field(None, description="Filter by dataset name")
+    subject: str | None = Field(None, description="Filter by subject")
+    limit: int = Field(20, ge=1, le=100, description="Max results to return")
+    offset: int = Field(0, ge=0, description="Results offset for pagination")
+    keyword_weight: float = Field(0.4, ge=0, le=1, description="Weight for keyword results")
+    semantic_weight: float = Field(0.6, ge=0, le=1, description="Weight for semantic results")
+    collection: str = Field("mmlu_embeddings", description="Qdrant collection to search")
