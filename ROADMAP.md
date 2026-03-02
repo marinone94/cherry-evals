@@ -4,7 +4,6 @@
 - [x] Done
 - [~] In progress
 - [ ] Planned
-- [!] Blocked / Failed
 
 ---
 
@@ -12,15 +11,13 @@
 
 **Goal:** Get one dataset searchable end-to-end with basic API.
 
-This is the minimum viable foundation. No agents, no fancy features — just the plumbing that everything else builds on.
-
 ### Infrastructure Setup
 - [x] Initialize uv project with `pyproject.toml`
-- [x] FastAPI project scaffold (`api/main.py`, `api/routes/`, `api/models/`)
+- [x] FastAPI project scaffold
 - [x] PostgreSQL setup with SQLAlchemy models
 - [x] Alembic migrations setup
 - [x] Qdrant vector database setup (local Docker)
-- [x] Docker Compose for local development (postgres, qdrant)
+- [x] Docker Compose for local development (Postgres, Qdrant)
 - [x] Pre-commit hooks (ruff check, ruff format)
 - [x] Environment configuration (`.env.example`, `pydantic-settings`)
 
@@ -28,16 +25,16 @@ This is the minimum viable foundation. No agents, no fancy features — just the
 - [x] `Example` schema (question, answer, choices, example_metadata)
 - [x] `Dataset` schema (name, source, license, task_type, description, stats)
 - [x] `Collection` schema (name, description, user_id, created_at)
-- [x] `CollectionExample` join table (collection_id, example_id, added_at)
+- [x] `CollectionExample` join table
 
 ### First Dataset: MMLU
-- [ ] Download MMLU from HuggingFace
-- [ ] Parse and normalize to internal `Example` schema
-- [ ] Extract metadata (subject, split, difficulty)
-- [ ] Store examples in PostgreSQL
-- [ ] Generate embeddings (start with `text-embedding-3-small` or similar)
-- [ ] Index embeddings in Qdrant
-- [ ] Ingestion CLI command: `uv run python -m cherry_evals.cli ingest mmlu`
+- [x] Download MMLU from HuggingFace
+- [x] Parse and normalize to internal `Example` schema
+- [x] Extract metadata (subject, split, difficulty)
+- [x] Store examples in PostgreSQL
+- [~] Generate embeddings (migrating from OpenAI to Google text-embedding-004)
+- [x] Index embeddings in Qdrant
+- [x] Ingestion CLI command
 
 ### Basic API Endpoints
 - [x] `GET /health` - Health check
@@ -63,7 +60,7 @@ This is the minimum viable foundation. No agents, no fancy features — just the
 - [ ] MMLU dataset fully ingested (~14k examples)
 - [ ] Can search examples by keyword
 - [ ] API returns paginated results
-- [x] All tests passing (43 passed, 1 skipped)
+- [x] All tests passing
 - [x] Docker Compose starts all services
 
 ---
@@ -73,22 +70,19 @@ This is the minimum viable foundation. No agents, no fancy features — just the
 **Goal:** Add vector search and hybrid search capabilities.
 
 ### Semantic Search
-- [ ] Qdrant search endpoint
-- [ ] `POST /search/semantic` - Vector similarity search
-- [ ] Embedding generation on-the-fly for queries
+- [ ] `POST /search/semantic` - Vector similarity search via Qdrant
+- [ ] Embedding generation on-the-fly for queries (Google text-embedding-004)
 - [ ] Top-k retrieval with score threshold
 
 ### Hybrid Search
 - [ ] `POST /search/hybrid` - Combined keyword + semantic
-- [ ] Configurable weights (keyword vs semantic)
-- [ ] Result fusion and deduplication
-- [ ] Relevance scoring
+- [ ] Reciprocal Rank Fusion with configurable weights
+- [ ] Result deduplication
 
 ### Search Improvements
 - [ ] Filter by multiple fields (dataset, subject, difficulty)
-- [ ] Sort options (relevance, date, alphabetical)
+- [ ] Sort options (relevance, date)
 - [ ] Faceted search (count by subject, by dataset)
-- [ ] Search result highlighting
 
 ### Testing
 - [ ] Unit tests for search functions
@@ -109,31 +103,15 @@ This is the minimum viable foundation. No agents, no fancy features — just the
 ### Collection CRUD
 - [ ] `POST /collections` - Create collection
 - [ ] `GET /collections` - List collections
-- [ ] `GET /collections/{id}` - Get collection with example count
+- [ ] `GET /collections/{id}` - Get collection with stats
 - [ ] `PUT /collections/{id}` - Update collection metadata
 - [ ] `DELETE /collections/{id}` - Delete collection
 
 ### Collection Examples
-- [ ] `POST /collections/{id}/examples` - Add examples by ID
+- [ ] `POST /collections/{id}/examples` - Add examples
 - [ ] `DELETE /collections/{id}/examples/{example_id}` - Remove example
 - [ ] `POST /collections/{id}/examples/bulk` - Bulk add/remove
 - [ ] `GET /collections/{id}/examples` - List examples in collection
-
-### Search + Selection
-- [ ] Search results include `in_collection` flag for active collection
-- [ ] `POST /collections/{id}/examples/from-search` - Add all from search query
-- [ ] Selection state in search response
-
-### Collection Features
-- [ ] Collection tags
-- [ ] Collection notes/description
-- [ ] Collection stats (size, subject distribution)
-- [ ] Duplicate detection within collection
-
-### Testing
-- [ ] Unit tests for collection operations
-- [ ] Integration tests for collection API
-- [ ] System test: create collection, add examples, verify
 
 ### Success Criteria
 - [ ] Can create and populate a collection from search
@@ -147,129 +125,58 @@ This is the minimum viable foundation. No agents, no fancy features — just the
 **Goal:** Export collections to local files and external platforms.
 
 ### Local Export
-- [ ] `POST /export/local` - Export to file
-- [ ] JSON format export
-- [ ] JSONL format export (streaming)
-- [ ] CSV format export
-- [ ] `GET /export/{job_id}/download` - Download exported file
-
-### Export Jobs
-- [ ] Export job model (id, status, format, progress)
-- [ ] Background job processing (start with sync, add async later)
-- [ ] `GET /export/jobs` - List export jobs
-- [ ] `GET /export/jobs/{id}` - Get job status
+- [ ] JSON, JSONL, CSV format export
+- [ ] Download endpoint
 
 ### Langfuse Integration
-- [ ] Langfuse client setup
-- [ ] `POST /export/langfuse` - Export to Langfuse dataset
-- [ ] Map collection to Langfuse dataset format
-- [ ] Progress tracking for Langfuse upload
-- [ ] Error handling and retry
-
-### Arize Phoenix Integration
-- [ ] Phoenix client setup
-- [ ] `POST /export/phoenix` - Export to Phoenix
-- [ ] Map collection to Phoenix format
-- [ ] Include embeddings in export
-
-### Testing
-- [ ] Unit tests for format converters
-- [ ] Integration tests for export endpoints
-- [ ] Integration tests for Langfuse/Phoenix (mocked)
-- [ ] System test: search → collect → export → verify file
+- [ ] Export collection as Langfuse dataset
+- [ ] Progress tracking
 
 ### Success Criteria
 - [ ] Can export collection to JSONL
 - [ ] Can export collection to Langfuse
-- [ ] Export job status is trackable
 
 ---
 
-## MVP-4: ADK Search Agent
+## MVP-4: MCP Server
 
-**Goal:** Add intelligent search with query understanding and expansion.
+**Goal:** AI agents can use Cherry Evals as a tool via MCP.
 
-### Query Understanding Agent
-- [ ] Agent definition in `agents/agent.py`
-- [ ] Prompt in `agents/prompts/query_understanding_agent.py`
-- [ ] Parse natural language queries
-- [ ] Extract structured filters (dataset, subject, difficulty)
-- [ ] Identify search intent
-
-### Query Expansion Agent
-- [ ] Agent definition
-- [ ] Expand query with synonyms
-- [ ] Add related concepts
-- [ ] Generate alternative phrasings
-
-### Result Ranking Agent
-- [ ] Agent definition
-- [ ] Re-rank results by relevance
-- [ ] Diversify results (not all from same subject)
-- [ ] Explain ranking decisions
-
-### Search Agent Orchestration
-- [ ] `SequentialAgent` combining all three
-- [ ] `POST /search/agentic` - Agent-powered search
-- [ ] Langfuse tracing for agent calls
-- [ ] Fallback to hybrid search on agent failure
-
-### Testing
-- [ ] Agent unit tests with mocked LLM
-- [ ] Integration tests for agentic search
-- [ ] Quality comparison: agentic vs hybrid
+### MCP Tools
+- [ ] `search_examples` - Search across datasets
+- [ ] `create_collection` - Start a new collection
+- [ ] `add_to_collection` - Cherry-pick examples
+- [ ] `export_collection` - Export in specified format
+- [ ] `list_datasets` - Available datasets
 
 ### Success Criteria
-- [ ] Agent search handles natural language queries
-- [ ] Agent search quality >= hybrid search
-- [ ] Agent traces visible in Langfuse
+- [ ] Any MCP-compatible agent can search and curate eval sets
+- [ ] Agent usage generates curation traces for collective intelligence
 
 ---
 
-## MVP-5: Format Conversion
+## MVP-5: Frontend
 
-**Goal:** Convert collections to various evaluation framework formats.
+**Goal:** Web UI for visual browsing, search, and collection management.
 
-### Predefined Converters
-- [ ] OpenAI Evals format
-- [ ] LangChain/LangSmith format
-- [ ] Inspect AI format
-- [ ] LMMS-Eval format
-- [ ] Generic JSON with schema mapping
+### Core UI
+- [ ] Search interface with filters
+- [ ] Example detail view
+- [ ] Collection builder (drag-and-drop or click-to-add)
+- [ ] Export wizard
 
-### Conversion API
-- [ ] `GET /converters` - List available converters
-- [ ] `POST /convert/preview` - Preview conversion on sample
-- [ ] `POST /convert` - Convert full collection
-- [ ] Converter validation (schema check)
-
-### Custom Converters
-- [ ] Lambda function support (sandboxed execution)
-- [ ] Template-based converters (Jinja2)
-- [ ] `POST /converters/custom` - Create custom converter
-- [ ] Converter storage and retrieval
-
-### LLM-Generated Converters
-- [ ] Converter agent definition
-- [ ] `POST /converters/generate` - Generate converter from description
-- [ ] Generated code validation
-- [ ] Human review before execution
-
-### Testing
-- [ ] Unit tests for each predefined converter
-- [ ] Integration tests for conversion API
-- [ ] Security tests for custom converter sandbox
+### Tech
+- [ ] React + Tailwind
+- [ ] Connected to REST API
 
 ### Success Criteria
-- [ ] Can convert collection to OpenAI Evals format
-- [ ] Custom converter works safely
-- [ ] LLM can generate working converters
+- [ ] Non-technical researchers can use Cherry Evals through the browser
 
 ---
 
 ## MVP-6: More Datasets
 
-**Goal:** Expand dataset coverage beyond MMLU.
+**Goal:** Expand beyond MMLU.
 
 ### Priority Datasets
 - [ ] HumanEval (code generation)
@@ -281,92 +188,63 @@ This is the minimum viable foundation. No agents, no fancy features — just the
 ### Ingestion Pipeline
 - [ ] Generic ingestion interface
 - [ ] Dataset-specific adapters
-- [ ] CLI: `uv run python -m cherry_evals.cli ingest <dataset>`
-- [ ] Ingestion status tracking
-- [ ] Re-ingestion support (update existing)
-
-### Dataset Management
-- [ ] `POST /datasets/ingest` - Trigger ingestion (admin only)
-- [ ] `GET /datasets/{id}/status` - Ingestion status
-- [ ] Dataset versioning (track updates)
-
-### Testing
-- [ ] Unit tests for each dataset adapter
-- [ ] Integration tests for ingestion pipeline
-- [ ] Data quality checks (schema validation)
+- [ ] Re-ingestion support
 
 ### Success Criteria
 - [ ] 5+ datasets indexed
 - [ ] 50k+ examples searchable
-- [ ] Ingestion is repeatable and idempotent
 
 ---
 
-## Future: Advanced Features
+## MVP-7: Intelligent Search (Agent-Powered)
 
-### Advanced Search
-- [ ] Search within collections
-- [ ] Saved searches
-- [ ] Search history
-- [ ] Similar example discovery
-- [ ] Clustering visualization
+**Goal:** LLM-powered query understanding and result ranking.
 
-### Multi-Modal Support
-- [ ] Image+text datasets (VQA, image captioning)
-- [ ] Schema extension for multi-modal
-- [ ] Image storage and retrieval
-- [ ] Multi-modal embeddings
+### Query Understanding
+- [ ] Parse natural language queries
+- [ ] Extract structured filters
+- [ ] Query expansion with related concepts
 
-### Performance & Scale
-- [ ] Query caching (Redis)
-- [ ] Async job processing
-- [ ] Batch embedding generation
-- [ ] Search result caching
+### Result Ranking
+- [ ] Re-rank results by relevance and diversity
+- [ ] Explain ranking decisions
 
-### RAG Backend Comparison
-- [ ] Vespa integration
-- [ ] Redis vector search integration
-- [ ] GCP Vertex AI RAG engine
-- [ ] Benchmark comparison (latency, quality, cost)
-- [ ] Select winner, document decision
-
-### Frontend (Lovable)
-- [ ] Search interface
-- [ ] Collection builder
-- [ ] Export wizard
-- [ ] User authentication
-
-### Deployment
-- [ ] Production Docker setup
-- [ ] Cloud Run or similar
-- [ ] CI/CD pipeline
-- [ ] Monitoring and alerting
+### Success Criteria
+- [ ] Natural language queries return high-quality results
+- [ ] Agent search quality >= hybrid search
 
 ---
 
-## Future: Monetization & Community
+## Future: Collective Intelligence
 
-### Authentication & Multi-tenancy
+### Curation Traces
+- [ ] Track search → pick → export flows
+- [ ] Co-selection pattern detection
+- [ ] Quality signals from pick rates
+
+### Recommendations
+- [ ] "Others also picked" suggestions
+- [ ] Collection gap detection
+- [ ] Improved ranking from usage data
+
+---
+
+## Future: Production & Monetization
+
+### Auth & Multi-tenancy
 - [ ] User authentication
 - [ ] Team/organization support
 - [ ] Shared collections
-- [ ] Access control
+
+### Deployment
+- [ ] Production Docker setup
+- [ ] Cloud deployment (Cloud Run or similar)
+- [ ] CI/CD pipeline
 
 ### Monetization
 - [ ] Free tier with limits
 - [ ] Pro tier
 - [ ] API access tiers
-
-### Community
-- [ ] Public collection sharing
-- [ ] Community-contributed converters
-- [ ] Dataset quality ratings
-
-### Integrations
-- [ ] Weights & Biases export
-- [ ] MLflow export
-- [ ] GitHub Actions for eval CI/CD
-- [ ] Webhook destinations
 
 ---
 
@@ -374,12 +252,12 @@ This is the minimum viable foundation. No agents, no fancy features — just the
 
 **Simple, working steps:**
 - Get one thing working before adding the next
-- Quality over quantity (3 good datasets > 50 broken ones)
+- Quality over quantity
 - Ship early, iterate often
 
-**Decision points:**
-- After MVP-1: Is search quality acceptable? Iterate if not.
-- After MVP-4: Is agent search better than hybrid? Keep hybrid as fallback.
-- After RAG comparison: Document decision and commit.
+**Data flywheel > intelligence moat:**
+- Every interaction is a signal
+- Collective curation intelligence is the real product
+- The managed version wins on accumulated wisdom
 
-**Success = a working tool that researchers actually use.**
+**Success = researchers and AI agents use Cherry Evals as their default eval curation tool.**
