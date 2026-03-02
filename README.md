@@ -1,66 +1,79 @@
-# cherry-evals 🍒
-Cherry-evals is a webapp for collecting, searching, cherry-picking examples from public evaluation datasets and creating and managing your own evaluation collections.
+# cherry-evals
 
-## Motivation
-There is not an easy way to search across public evaluation datasets and cherry-pick the best examples for your own experiments, so why not build it?
-Here we can learn:
-- deep agentic search
-- LLM-powered code generation
-- RAG with different vector dbs
-- integration with other eval tools and frameworks
-- UI/UX design
-- deployment
-- observability
-- security
-- scalability
-- and anything more we want to explore
+Search, cherry-pick, and export examples from public AI evaluation datasets.
 
-Currently a private repo, might make sense to open-source it later, but for now we can keep it private, so no pressure, we can always create a new one and remove commits.
+## What is this?
+
+Cherry Evals is a platform for discovering and curating custom evaluation collections from public AI benchmark datasets (MMLU, HumanEval, GSM8K, etc.). Instead of writing one-off scripts to filter and convert datasets, use Cherry Evals to:
+
+- **Search** across multiple datasets with keyword, semantic, and hybrid search
+- **Cherry-pick** individual examples into curated collections
+- **Export** collections to any eval framework format (Langfuse, LangSmith, Inspect AI, JSONL, CSV)
+
+Works for both humans (web UI, CLI) and AI agents (MCP server, REST API).
+
+## Quick Start
+
+```bash
+# Clone and install
+git clone https://github.com/your-org/cherry-evals.git
+cd cherry-evals
+uv sync
+
+# Start infrastructure
+docker compose up -d
+
+# Run migrations
+uv run alembic upgrade head
+
+# Ingest a dataset
+uv run python -m cherry_evals.cli ingest mmlu
+
+# Generate embeddings
+uv run python -m cherry_evals.cli embed mmlu
+
+# Start the API
+uv run fastapi dev api/main.py
+```
+
+## Interfaces
+
+| Interface | For | Status |
+|-----------|-----|--------|
+| REST API | Programmatic access | Available |
+| CLI | Local operations | Available |
+| MCP Server | AI agent integration | Planned |
+| Web UI | Visual browsing | Planned |
 
 ## Project Structure
 
 ```
 cherry-evals/
-├── README.md           # This file
-├── ROADMAP.md          # Development roadmap and milestones
-├── AGENTS.md           # AI agent development guidelines
-├── api/                # FastAPI REST API (coming in MVP-0)
-├── agents/             # Google ADK agent definitions (coming in MVP-4)
-├── core/               # Business logic
+├── api/                # FastAPI REST API
+├── cherry_evals/       # Core package (CLI, ingestion, embeddings)
+├── core/               # Business logic (search, convert, export)
 ├── db/                 # Database layer (PostgreSQL, Qdrant)
-└── tests/              # Test suite
+├── agents/             # LLM-powered features
+├── tests/              # Test suite
+└── docs/               # Architecture and vision docs
 ```
 
-See [ROADMAP.md](./ROADMAP.md) for the full development plan.
+## Development
 
-## Approach
-The general principle to be followed - in my opinion - is to add simple, working steps for each part of the tool:
-- select and ingest 1 dataset
-- select and set 1 vector db
-- implement embedding and retrieval with 1 model
-- add endpoints to select and export collections as they are
-- set integration with langfuse for our own observability
-- set a simple docker-compose to start services with ease for local development
+```bash
+uv run pytest                  # Run tests
+uv run ruff check .            # Lint
+uv run ruff format .           # Format
+uv run pre-commit run --all    # All checks
+```
 
-Second, build UI and user mgmt with lovable.
+See [AGENTS.md](./AGENTS.md) for the full development guide.
+See [ROADMAP.md](./ROADMAP.md) for the development roadmap.
 
-Deploy Frontend and backend in the easiest way possible, tools for deployment TBD (vercel? cloud run? what else?)
+## Tech Stack
 
-And once everything works, expand on each:
-- more datasets
-- different vector dbs to test and compare
-- different embedding models
-- add agentic search
-- add agentic code generation for conversion
-- no-code data augmentation
-- allow custom lambda functions for conversion
-- integrate with other eval tools and frameworks
-- improve UI
-- teams view, collaboration features
-- export to other formats, different targets, ...
+Python 3.13 | FastAPI | PostgreSQL | Qdrant | Google Embeddings | Anthropic Claude | Langfuse
 
-## Remember
-- when we start developing, we use branches, not main
-- always use conventional commits, it will simplify releases
+## License
 
-LFG!
+TBD
