@@ -184,20 +184,20 @@
 **Goal:** Expand beyond MMLU.
 
 ### Priority Datasets
-- [ ] HumanEval (code generation)
-- [ ] GSM8K (math reasoning)
-- [ ] HellaSwag (commonsense)
-- [ ] TruthfulQA (truthfulness)
-- [ ] ARC (science QA)
+- [x] HumanEval (code generation)
+- [x] GSM8K (math reasoning)
+- [x] HellaSwag (commonsense)
+- [x] TruthfulQA (truthfulness)
+- [x] ARC (science QA)
 
 ### Ingestion Pipeline
-- [ ] Generic ingestion interface
-- [ ] Dataset-specific adapters
-- [ ] Re-ingestion support
+- [x] Generic ingestion interface (DatasetAdapter ABC)
+- [x] Dataset-specific adapters (6 total including MMLU refactor)
+- [x] Re-ingestion support (idempotent: clears old examples on re-run)
 
 ### Success Criteria
-- [ ] 5+ datasets indexed
-- [ ] 50k+ examples searchable
+- [x] 6 datasets indexed (MMLU, HumanEval, GSM8K, HellaSwag, TruthfulQA, ARC)
+- [ ] 50k+ examples searchable (pending actual ingestion run)
 
 ---
 
