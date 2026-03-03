@@ -146,9 +146,7 @@ class TestCollectionTools:
         test_db_session.add(coll)
         test_db_session.flush()
 
-        test_db_session.add(
-            CollectionExample(collection_id=coll.id, example_id=examples[0].id)
-        )
+        test_db_session.add(CollectionExample(collection_id=coll.id, example_id=examples[0].id))
         test_db_session.flush()
 
         result = json.loads(add_to_collection(coll.id, [examples[0].id, examples[1].id]))
@@ -169,9 +167,7 @@ class TestCollectionTools:
         test_db_session.add(coll)
         test_db_session.flush()
 
-        test_db_session.add(
-            CollectionExample(collection_id=coll.id, example_id=examples[0].id)
-        )
+        test_db_session.add(CollectionExample(collection_id=coll.id, example_id=examples[0].id))
         test_db_session.flush()
 
         result = json.loads(get_collection(coll.id))
@@ -196,9 +192,7 @@ class TestExportCollection:
         test_db_session.add(coll)
         test_db_session.flush()
         for ex in examples[:2]:
-            test_db_session.add(
-                CollectionExample(collection_id=coll.id, example_id=ex.id)
-            )
+            test_db_session.add(CollectionExample(collection_id=coll.id, example_id=ex.id))
         test_db_session.flush()
 
         result = export_collection(coll.id, format="json")
@@ -212,9 +206,7 @@ class TestExportCollection:
         coll = Collection(name="Export JSONL")
         test_db_session.add(coll)
         test_db_session.flush()
-        test_db_session.add(
-            CollectionExample(collection_id=coll.id, example_id=examples[0].id)
-        )
+        test_db_session.add(CollectionExample(collection_id=coll.id, example_id=examples[0].id))
         test_db_session.flush()
 
         result = export_collection(coll.id, format="jsonl")
@@ -229,9 +221,7 @@ class TestExportCollection:
         coll = Collection(name="Export CSV")
         test_db_session.add(coll)
         test_db_session.flush()
-        test_db_session.add(
-            CollectionExample(collection_id=coll.id, example_id=examples[0].id)
-        )
+        test_db_session.add(CollectionExample(collection_id=coll.id, example_id=examples[0].id))
         test_db_session.flush()
 
         result = export_collection(coll.id, format="csv")
