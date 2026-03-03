@@ -76,4 +76,4 @@ Python 3.13 | FastAPI | PostgreSQL | Qdrant | Google Embeddings | Anthropic Clau
 
 ## License
 
-TBD
+[Elastic License 2.0](./LICENSE) — free to use and modify, but you may not offer it as a competing hosted service.
