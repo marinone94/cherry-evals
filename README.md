@@ -1,5 +1,9 @@
 # cherry-evals
 
+[![CI](https://github.com/marinone94/cherry-evals/actions/workflows/ci.yml/badge.svg)](https://github.com/marinone94/cherry-evals/actions/workflows/ci.yml)
+[![License: ELv2](https://img.shields.io/badge/License-ELv2-blue.svg)](./LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/marinone94/cherry-evals?style=social)](https://github.com/marinone94/cherry-evals)
+
 Search, cherry-pick, and export examples from public AI evaluation datasets.
 
 ## What is this?

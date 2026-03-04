@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { searchKeyword, listCollections, addExamplesToCollection, createCollection } from '../lib/api';
+import { searchKeyword, searchIntelligent, listCollections, addExamplesToCollection, createCollection } from '../lib/api';
 import ExampleCard from '../components/ExampleCard';
 
 export default function SearchPage() {
@@ -13,6 +13,9 @@ export default function SearchPage() {
   const [addedIds, setAddedIds] = useState(new Set());
   const [showNewColl, setShowNewColl] = useState(false);
   const [newCollName, setNewCollName] = useState('');
+  const [searchMode, setSearchMode] = useState('keyword');
+  const [metadata, setMetadata] = useState(null);
+  const [metaExpanded, setMetaExpanded] = useState(true);
 
   useEffect(() => {
     listCollections()
@@ -25,10 +28,18 @@ export default function SearchPage() {
     if (!query.trim()) return;
     setLoading(true);
     setError(null);
+    setMetadata(null);
     try {
-      const data = await searchKeyword(query.trim(), { limit: 50 });
-      setResults(data.results || []);
-      setTotal(data.total || 0);
+      if (searchMode === 'intelligent') {
+        const data = await searchIntelligent(query.trim(), { limit: 50 });
+        setResults(data.results || []);
+        setTotal(data.total || 0);
+        setMetadata(data.metadata || null);
+      } else {
+        const data = await searchKeyword(query.trim(), { limit: 50 });
+        setResults(data.results || []);
+        setTotal(data.total || 0);
+      }
       setAddedIds(new Set());
     } catch (err) {
       setError(err.message);
@@ -64,7 +75,7 @@ export default function SearchPage() {
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-4">Search Examples</h1>
 
-      <form onSubmit={handleSearch} className="flex gap-2 mb-4">
+      <form onSubmit={handleSearch} className="flex gap-2 mb-3">
         <input
           type="text"
           value={query}
@@ -80,6 +91,80 @@ export default function SearchPage() {
           {loading ? 'Searching...' : 'Search'}
         </button>
       </form>
+
+      {/* Search mode toggle */}
+      <div className="flex items-center gap-1 mb-4">
+        <button
+          type="button"
+          onClick={() => { setSearchMode('keyword'); setMetadata(null); }}
+          className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+            searchMode === 'keyword'
+              ? 'bg-red-500 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          Keyword
+        </button>
+        <button
+          type="button"
+          onClick={() => { setSearchMode('intelligent'); setMetadata(null); }}
+          className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+            searchMode === 'intelligent'
+              ? 'bg-red-500 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          Intelligent (AI)
+        </button>
+      </div>
+
+      {/* Intelligent search metadata banner */}
+      {metadata && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 mb-4 text-sm">
+          <button
+            type="button"
+            onClick={() => setMetaExpanded((v) => !v)}
+            className="flex items-center justify-between w-full text-left"
+          >
+            <span className="font-medium text-gray-700">AI search insights</span>
+            <span className="text-gray-400 text-xs">{metaExpanded ? 'Hide' : 'Show'}</span>
+          </button>
+          {metaExpanded && (
+            <div className="mt-2 space-y-1 text-gray-600">
+              {metadata.explanation && (
+                <p>
+                  <span className="font-medium text-gray-700">AI understood:</span>{' '}
+                  {metadata.explanation}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {metadata.dataset && (
+                  <p>
+                    <span className="font-medium text-gray-700">Dataset:</span>{' '}
+                    <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-xs">
+                      {metadata.dataset}
+                    </span>
+                  </p>
+                )}
+                {metadata.subject && (
+                  <p>
+                    <span className="font-medium text-gray-700">Subject:</span>{' '}
+                    <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-xs">
+                      {metadata.subject}
+                    </span>
+                  </p>
+                )}
+              </div>
+              {metadata.search_query && metadata.search_query !== query && (
+                <p>
+                  <span className="font-medium text-gray-700">Expanded query:</span>{' '}
+                  <span className="italic text-gray-500">{metadata.search_query}</span>
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Collection selector */}
       <div className="flex items-center gap-2 mb-4 text-sm">

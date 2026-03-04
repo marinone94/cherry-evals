@@ -45,6 +45,12 @@ export const searchKeyword = (query, options = {}) =>
     body: JSON.stringify({ query, ...options }),
   });
 
+export const searchIntelligent = (query, options = {}) =>
+  request('/search/intelligent', {
+    method: 'POST',
+    body: JSON.stringify({ query, ...options }),
+  });
+
 // Collections
 export const listCollections = () => request('/collections');
 export const getCollection = (id) => request(`/collections/${id}`);
