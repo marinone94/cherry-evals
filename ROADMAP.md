@@ -190,13 +190,19 @@
 - [x] TruthfulQA (truthfulness)
 - [x] ARC (science QA)
 
+### Additional Datasets
+- [x] WinoGrande (commonsense reasoning, ~41k examples, Apache-2.0)
+- [x] PIQA (physical intuition QA, ~18k examples, AFL-3.0)
+- [x] MBPP (Python code generation, ~974 examples, CC-BY-4.0)
+- [x] BoolQ (reading comprehension yes/no, ~12k examples, CC-BY-SA-3.0)
+
 ### Ingestion Pipeline
 - [x] Generic ingestion interface (DatasetAdapter ABC)
-- [x] Dataset-specific adapters (6 total including MMLU refactor)
+- [x] Dataset-specific adapters (10 total including MMLU refactor)
 - [x] Re-ingestion support (idempotent: clears old examples on re-run)
 
 ### Success Criteria
-- [x] 6 datasets indexed (MMLU, HumanEval, GSM8K, HellaSwag, TruthfulQA, ARC)
+- [x] 10 datasets indexed (MMLU, HumanEval, GSM8K, HellaSwag, TruthfulQA, ARC, WinoGrande, PIQA, MBPP, BoolQ)
 - [ ] 50k+ examples searchable (pending actual ingestion run)
 
 ---
