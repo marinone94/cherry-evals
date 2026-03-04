@@ -35,7 +35,14 @@ export default function ExampleCard({ example, actions }) {
             )}
           </div>
         </div>
-        {actions && <div className="flex-shrink-0">{actions}</div>}
+        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+          {example.score != null && (
+            <span className="bg-red-50 text-red-600 text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap">
+              {typeof example.score === 'number' ? example.score.toFixed(3) : example.score}
+            </span>
+          )}
+          {actions && <div>{actions}</div>}
+        </div>
       </div>
     </div>
   );
