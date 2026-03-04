@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from api.models.search import (
@@ -17,6 +17,7 @@ from api.models.search import (
     SemanticSearchRequest,
 )
 from core.search.keyword import keyword_search
+from core.traces.events import record_event
 from db.postgres.base import get_db
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,11 @@ router = APIRouter(prefix="/search", tags=["search"])
 
 
 @router.post("", response_model=SearchResponse)
-def search(request: SearchRequest, db: Session = Depends(get_db)):
+def search(
+    request: SearchRequest,
+    db: Session = Depends(get_db),
+    x_session_id: str | None = Header(default=None),
+):
     """Search examples by keyword.
 
     Searches across question and answer text using pattern matching.
@@ -42,6 +47,17 @@ def search(request: SearchRequest, db: Session = Depends(get_db)):
         sort_by=request.sort_by,
     )
 
+    try:
+        record_event(
+            db=db,
+            event_type="search",
+            session_id=x_session_id,
+            query=request.query,
+            search_mode="keyword",
+        )
+    except Exception:
+        logger.exception("Failed to record search event")
+
     return SearchResponse(
         results=[SearchResultItem(**r) for r in results],
         total=total,
@@ -52,7 +68,10 @@ def search(request: SearchRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/semantic", response_model=SearchResponse)
-def search_semantic(request: SemanticSearchRequest):
+def search_semantic(
+    request: SemanticSearchRequest,
+    x_session_id: str | None = Header(default=None),
+):
     """Search examples by semantic similarity.
 
     Embeds the query and finds nearest neighbors in the vector database.
@@ -85,7 +104,11 @@ def search_semantic(request: SemanticSearchRequest):
 
 
 @router.post("/hybrid", response_model=SearchResponse)
-def search_hybrid(request: HybridSearchRequest, db: Session = Depends(get_db)):
+def search_hybrid(
+    request: HybridSearchRequest,
+    db: Session = Depends(get_db),
+    x_session_id: str | None = Header(default=None),
+):
     """Combined keyword + semantic search.
 
     Runs both searches and merges results using Reciprocal Rank Fusion (RRF).
@@ -120,6 +143,17 @@ def search_hybrid(request: HybridSearchRequest, db: Session = Depends(get_db)):
         )
         results = kw_results
 
+    try:
+        record_event(
+            db=db,
+            event_type="search",
+            session_id=x_session_id,
+            query=request.query,
+            search_mode="hybrid",
+        )
+    except Exception:
+        logger.exception("Failed to record hybrid search event")
+
     return SearchResponse(
         results=[SearchResultItem(**r) for r in results],
         total=total,
@@ -130,7 +164,11 @@ def search_hybrid(request: HybridSearchRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/intelligent", response_model=IntelligentSearchResponse)
-def search_intelligent(request: IntelligentSearchRequest, db: Session = Depends(get_db)):
+def search_intelligent(
+    request: IntelligentSearchRequest,
+    db: Session = Depends(get_db),
+    x_session_id: str | None = Header(default=None),
+):
     """LLM-powered intelligent search with query understanding and result re-ranking.
 
     Uses Gemini Flash to parse the natural language query into structured
@@ -147,6 +185,17 @@ def search_intelligent(request: IntelligentSearchRequest, db: Session = Depends(
         limit=request.limit,
         offset=request.offset,
     )
+
+    try:
+        record_event(
+            db=db,
+            event_type="search",
+            session_id=x_session_id,
+            query=request.query,
+            search_mode="intelligent",
+        )
+    except Exception:
+        logger.exception("Failed to record intelligent search event")
 
     return IntelligentSearchResponse(
         results=[SearchResultItem(**r) for r in results],

@@ -1,6 +1,8 @@
 """Collection API endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -14,8 +16,11 @@ from api.models.collections import (
     CollectionUpdate,
     RemoveExamplesRequest,
 )
+from core.traces.events import record_event
 from db.postgres.base import get_db
 from db.postgres.models import Collection, CollectionExample, Example
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/collections", tags=["collections"])
 
@@ -135,7 +140,12 @@ def list_collection_examples(collection_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{collection_id}/examples", status_code=201)
-def add_examples(collection_id: int, request: AddExamplesRequest, db: Session = Depends(get_db)):
+def add_examples(
+    collection_id: int,
+    request: AddExamplesRequest,
+    db: Session = Depends(get_db),
+    x_session_id: str | None = Header(default=None),
+):
     """Add examples to a collection by ID. Skips duplicates."""
     collection = db.get(Collection, collection_id)
     if not collection:
@@ -166,12 +176,29 @@ def add_examples(collection_id: int, request: AddExamplesRequest, db: Session = 
         db.add(CollectionExample(collection_id=collection_id, example_id=example_id))
         added += 1
 
+        try:
+            record_event(
+                db=db,
+                event_type="pick",
+                session_id=x_session_id,
+                example_id=example_id,
+                collection_id=collection_id,
+                dataset_id=example.dataset_id,
+            )
+        except Exception:
+            logger.exception("Failed to record pick event for example_id=%s", example_id)
+
     db.commit()
     return {"added": added, "skipped": len(request.example_ids) - added}
 
 
 @router.delete("/{collection_id}/examples/{example_id}", status_code=204)
-def remove_example(collection_id: int, example_id: int, db: Session = Depends(get_db)):
+def remove_example(
+    collection_id: int,
+    example_id: int,
+    db: Session = Depends(get_db),
+    x_session_id: str | None = Header(default=None),
+):
     """Remove a single example from a collection."""
     ce = db.execute(
         select(CollectionExample).where(
@@ -184,6 +211,18 @@ def remove_example(collection_id: int, example_id: int, db: Session = Depends(ge
         raise HTTPException(status_code=404, detail="Example not in collection")
 
     db.delete(ce)
+
+    try:
+        record_event(
+            db=db,
+            event_type="remove",
+            session_id=x_session_id,
+            example_id=example_id,
+            collection_id=collection_id,
+        )
+    except Exception:
+        logger.exception("Failed to record remove event for example_id=%s", example_id)
+
     db.commit()
 
 
