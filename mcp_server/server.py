@@ -21,6 +21,7 @@ import sys
 from mcp.server.fastmcp import FastMCP
 from sqlalchemy import func, select
 
+from agents.search_agent import SearchAgent
 from core.export.formats import to_csv, to_json, to_jsonl
 from core.search.hybrid import hybrid_search
 from core.search.intelligent import intelligent_search
@@ -234,33 +235,73 @@ def hybrid_search_examples(
 def intelligent_search_examples(
     query: str,
     limit: int = 20,
-    collection: str | None = None,
+    max_iterations: int = 3,
+    strategy: str = "agent",
 ) -> str:
-    """Search for examples using LLM-powered intelligent search.
+    """Search for examples using the autonomous LLM-powered search agent.
 
-    Uses Gemini Flash to understand the natural language query and extract
-    filters (dataset, subject, task type), runs hybrid search with the
-    expanded query, then re-ranks results for relevance and diversity.
+    By default uses the autonomous search agent (strategy='agent') which
+    iterates and refines the search up to max_iterations times. Set
+    strategy='pipeline' for the original fixed parse→search→rerank flow.
+
+    The response includes a full iteration trace showing what the agent
+    tried and its quality evaluation at each step.
 
     Falls back gracefully if LLM calls or semantic search are unavailable.
 
     Args:
         query: Natural language search query (e.g. "hard science questions").
         limit: Maximum number of results to return (default 20, max 100).
-        collection: Optional Qdrant collection override. If None, the
-                    collection is inferred from the detected dataset.
+        max_iterations: Max agent iterations for strategy='agent' (1-5, default 3).
+        strategy: 'agent' (default) or 'pipeline' (original fixed DAG).
     """
     limit = min(limit, 100)
+    max_iterations = max(1, min(max_iterations, 5))
     db = _get_db()
     try:
-        results, total, metadata = intelligent_search(
-            db=db,
-            query=query,
-            limit=limit,
-            offset=0,
-            collection_name=collection,
+        if strategy == "pipeline":
+            results, total, metadata = intelligent_search(
+                db=db,
+                query=query,
+                limit=limit,
+                offset=0,
+            )
+            return json.dumps(
+                {
+                    "results": results,
+                    "total": total,
+                    "strategy_used": "pipeline",
+                    "metadata": metadata,
+                },
+                indent=2,
+            )
+
+        # strategy == "agent" (default)
+        agent = SearchAgent(db=db, max_iterations=max_iterations)
+        agent_result = agent.search(query=query, limit=limit)
+
+        iterations_out = [
+            {
+                "tool_used": it.tool_used,
+                "query": it.query,
+                "filters": it.filters,
+                "result_count": it.result_count,
+                "evaluation": it.evaluation,
+            }
+            for it in agent_result.iterations
+        ]
+
+        return json.dumps(
+            {
+                "results": agent_result.results,
+                "total": agent_result.total,
+                "strategy_used": "agent",
+                "iterations": iterations_out,
+                "final_evaluation": agent_result.final_evaluation,
+                "query_understanding": agent_result.query_understanding,
+            },
+            indent=2,
         )
-        return json.dumps({"results": results, "total": total, "metadata": metadata}, indent=2)
     finally:
         db.close()
 

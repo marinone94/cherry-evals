@@ -69,12 +69,35 @@ class HybridSearchRequest(BaseModel):
     collection: str = Field("mmlu_embeddings", description="Qdrant collection to search")
 
 
+class SearchIterationModel(BaseModel):
+    """A single iteration performed by the autonomous search agent."""
+
+    tool_used: str
+    query: str
+    filters: dict[str, Any]
+    result_count: int
+    evaluation: str | None = None
+
+
 class IntelligentSearchRequest(BaseModel):
     """Request model for LLM-powered intelligent search."""
 
     query: str = Field(..., min_length=1, description="Natural language search query")
     limit: int = Field(20, ge=1, le=100, description="Max results to return")
     offset: int = Field(0, ge=0, description="Results offset for pagination")
+    strategy: str = Field(
+        "agent",
+        description=(
+            "Search strategy: 'agent' (autonomous iterative agent, default) "
+            "or 'pipeline' (fixed parse→search→rerank DAG)"
+        ),
+    )
+    max_iterations: int = Field(
+        3,
+        ge=1,
+        le=5,
+        description="Maximum agent iterations (only used when strategy='agent')",
+    )
 
 
 class IntelligentSearchResponse(SearchResponse):
@@ -83,6 +106,22 @@ class IntelligentSearchResponse(SearchResponse):
     metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Query understanding and re-ranking metadata",
+    )
+    iterations: list[SearchIterationModel] = Field(
+        default_factory=list,
+        description="Agent iteration trace (populated when strategy='agent')",
+    )
+    final_evaluation: str = Field(
+        default="",
+        description="Agent's final quality assessment (populated when strategy='agent')",
+    )
+    query_understanding: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Initial query understanding / search plan",
+    )
+    strategy_used: str = Field(
+        default="pipeline",
+        description="Which strategy was used: 'agent' or 'pipeline'",
     )
 
 

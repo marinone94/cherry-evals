@@ -11,6 +11,7 @@ from api.models.search import (
     HybridSearchRequest,
     IntelligentSearchRequest,
     IntelligentSearchResponse,
+    SearchIterationModel,
     SearchRequest,
     SearchResponse,
     SearchResultItem,
@@ -171,12 +172,62 @@ def search_intelligent(
 ):
     """LLM-powered intelligent search with query understanding and result re-ranking.
 
-    Uses Gemini Flash to parse the natural language query into structured
-    parameters (expanded query, dataset filter, subject filter), runs hybrid
-    search, and re-ranks results for relevance and diversity.
+    Supports two strategies:
+    - ``agent`` (default): An autonomous search agent that iterates, evaluates
+      results, and refines the query up to ``max_iterations`` times. Returns
+      a full trace of agent iterations.
+    - ``pipeline``: Fixed DAG — parse → hybrid search → rerank.  The original
+      behaviour, kept for backward compatibility.
 
     Falls back gracefully if LLM calls or semantic search are unavailable.
     """
+    strategy = (request.strategy or "agent").lower()
+
+    if strategy == "agent":
+        from agents.search_agent import SearchAgent
+
+        agent = SearchAgent(db=db, max_iterations=request.max_iterations)
+        agent_result = agent.search(query=request.query, limit=request.limit)
+
+        # Apply pagination offset after agent returns results
+        paginated = agent_result.results[request.offset : request.offset + request.limit]
+
+        iterations_out = [
+            SearchIterationModel(
+                tool_used=it.tool_used,
+                query=it.query,
+                filters=it.filters,
+                result_count=it.result_count,
+                evaluation=it.evaluation,
+            )
+            for it in agent_result.iterations
+        ]
+
+        try:
+            record_event(
+                db=db,
+                event_type="search",
+                session_id=x_session_id,
+                query=request.query,
+                search_mode="intelligent_agent",
+            )
+        except Exception:
+            logger.exception("Failed to record intelligent agent search event")
+
+        return IntelligentSearchResponse(
+            results=[SearchResultItem(**r) for r in paginated],
+            total=agent_result.total,
+            query=request.query,
+            offset=request.offset,
+            limit=request.limit,
+            metadata={"query_understanding": agent_result.query_understanding},
+            iterations=iterations_out,
+            final_evaluation=agent_result.final_evaluation,
+            query_understanding=agent_result.query_understanding,
+            strategy_used="agent",
+        )
+
+    # strategy == "pipeline" — original fixed DAG
     from core.search.intelligent import intelligent_search
 
     results, total, metadata = intelligent_search(
@@ -204,6 +255,7 @@ def search_intelligent(
         offset=request.offset,
         limit=request.limit,
         metadata=metadata,
+        strategy_used="pipeline",
     )
 
 

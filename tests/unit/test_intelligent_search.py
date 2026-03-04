@@ -539,7 +539,8 @@ class TestIntelligentSearchEndpoint:
             return_value=(mock_results, 2, mock_metadata),
         ):
             response = test_client.post(
-                "/search/intelligent", json={"query": "hard math", "limit": 10}
+                "/search/intelligent",
+                json={"query": "hard math", "limit": 10, "strategy": "pipeline"},
             )
 
         assert response.status_code == 200
@@ -572,7 +573,9 @@ class TestIntelligentSearchEndpoint:
             "core.search.intelligent.intelligent_search",
             return_value=([], 0, empty_metadata),
         ):
-            response = test_client.post("/search/intelligent", json={"query": "x"})
+            response = test_client.post(
+                "/search/intelligent", json={"query": "x", "strategy": "pipeline"}
+            )
 
         assert response.status_code == 200
         data = response.json()
@@ -599,7 +602,9 @@ class TestIntelligentSearchEndpoint:
             "core.search.intelligent.intelligent_search",
             return_value=(mock_results, 1, mock_metadata),
         ):
-            response = test_client.post("/search/intelligent", json={"query": "q"})
+            response = test_client.post(
+                "/search/intelligent", json={"query": "q", "strategy": "pipeline"}
+            )
 
         assert response.status_code == 200
         data = response.json()
@@ -612,7 +617,9 @@ class TestIntelligentSearchEndpoint:
             "core.search.intelligent.intelligent_search",
             return_value=([], 0, {}),
         ):
-            response = test_client.post("/search/intelligent", json={"query": "test"})
+            response = test_client.post(
+                "/search/intelligent", json={"query": "test", "strategy": "pipeline"}
+            )
 
         assert response.status_code == 200
         data = response.json()
