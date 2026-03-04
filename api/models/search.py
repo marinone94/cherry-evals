@@ -61,3 +61,20 @@ class HybridSearchRequest(BaseModel):
     keyword_weight: float = Field(0.4, ge=0, le=1, description="Weight for keyword results")
     semantic_weight: float = Field(0.6, ge=0, le=1, description="Weight for semantic results")
     collection: str = Field("mmlu_embeddings", description="Qdrant collection to search")
+
+
+class IntelligentSearchRequest(BaseModel):
+    """Request model for LLM-powered intelligent search."""
+
+    query: str = Field(..., min_length=1, description="Natural language search query")
+    limit: int = Field(20, ge=1, le=100, description="Max results to return")
+    offset: int = Field(0, ge=0, description="Results offset for pagination")
+
+
+class IntelligentSearchResponse(SearchResponse):
+    """Response model for intelligent search, extending SearchResponse with metadata."""
+
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Query understanding and re-ranking metadata",
+    )

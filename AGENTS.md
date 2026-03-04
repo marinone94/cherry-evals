@@ -62,7 +62,7 @@ cherry-evals/
 │   └── embeddings/         # Embedding generation (provider-based)
 │
 ├── core/                   # Business logic
-│   ├── search/             # Search implementations (keyword, semantic, hybrid)
+│   ├── search/             # Search implementations (keyword, semantic, hybrid, intelligent)
 │   ├── ingest/             # Ingestion orchestration
 │   ├── convert/            # Format converters
 │   └── export/             # Export adapters
@@ -71,8 +71,10 @@ cherry-evals/
 │   ├── postgres/           # SQLAlchemy models, base, session
 │   └── qdrant/             # Qdrant client and operations
 │
-├── agents/                 # LLM-powered agent logic (when needed)
-│   ├── prompts/            # Agent instructions as Python constants
+├── agents/                 # LLM-powered agent logic
+│   ├── prompts/            # Agent instructions as Python constants (e.g. prompts/search.py)
+│   ├── query_agent.py      # Query understanding: parse NL query → structured params (Gemini Flash)
+│   ├── reranker.py         # Result re-ranker: re-order results by relevance/diversity (Gemini Flash)
 │   └── tools/              # Agent tools
 │
 ├── scripts/                # Utility scripts
