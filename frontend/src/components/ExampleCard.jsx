@@ -1,6 +1,28 @@
+import { taskTypeBadgeClasses } from '../lib/taskTypeColors';
+
 export default function ExampleCard({ example, actions }) {
+  const taskType = example.task_type || example.example_metadata?.task_type;
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow">
+      {/* Card header: dataset badge + task type badge */}
+      {(example.dataset_name || taskType) && (
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          {example.dataset_name && (
+            <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full font-medium">
+              {example.dataset_name}
+            </span>
+          )}
+          {taskType && (
+            <span
+              className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${taskTypeBadgeClasses(taskType)}`}
+            >
+              {taskType}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-gray-900 mb-1">{example.question}</p>
@@ -27,7 +49,6 @@ export default function ExampleCard({ example, actions }) {
           )}
           <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
             <span>ID: {example.id}</span>
-            {example.dataset_name && <span>{example.dataset_name}</span>}
             {example.example_metadata?.subject && (
               <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">
                 {example.example_metadata.subject}

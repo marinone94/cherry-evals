@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   searchKeyword,
   searchIntelligent,
@@ -10,6 +11,8 @@ import {
 import ExampleCard from '../components/ExampleCard';
 
 export default function SearchPage() {
+  const [searchParams] = useSearchParams();
+
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [total, setTotal] = useState(0);
@@ -29,7 +32,14 @@ export default function SearchPage() {
   const [filterDataset, setFilterDataset] = useState('');
   const [filterTaskType, setFilterTaskType] = useState('');
 
-  // Load collections and initial facets on mount
+  // Bulk select
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkAdding, setBulkAdding] = useState(false);
+
+  // Read ?dataset= query param from DatasetsPage "Browse Examples" link
+  const presetDataset = searchParams.get('dataset') || '';
+
+  // Load collections and initial facets on mount; apply any preset filter
   useEffect(() => {
     listCollections()
       .then((data) => setCollections(data.collections || []))
@@ -37,6 +47,11 @@ export default function SearchPage() {
     getSearchFacets(null)
       .then((data) => setFacets(data))
       .catch(() => {});
+
+    if (presetDataset) {
+      setFilterDataset(presetDataset);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const refreshFacets = useCallback((q) => {
@@ -68,6 +83,7 @@ export default function SearchPage() {
         setTotal(data.total || 0);
       }
       setAddedIds(new Set());
+      setSelectedIds(new Set());
       refreshFacets(query.trim());
     } catch (err) {
       setError(err.message);
@@ -83,6 +99,22 @@ export default function SearchPage() {
       setAddedIds((prev) => new Set([...prev, exampleId]));
     } catch (err) {
       setError(err.message);
+    }
+  };
+
+  const handleBulkAdd = async () => {
+    if (!selectedCollection || selectedIds.size === 0) return;
+    setBulkAdding(true);
+    setError(null);
+    try {
+      const ids = Array.from(selectedIds);
+      await addExamplesToCollection(parseInt(selectedCollection), ids);
+      setAddedIds((prev) => new Set([...prev, ...ids]));
+      setSelectedIds(new Set());
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBulkAdding(false);
     }
   };
 
@@ -105,6 +137,29 @@ export default function SearchPage() {
   };
 
   const hasFilters = filterDataset || filterTaskType;
+
+  // Bulk select helpers
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedIds(new Set(results.map((r) => r.id)));
+  };
+
+  const deselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
+  // Results that are selected and not yet added
+  const pendingSelectedCount = Array.from(selectedIds).filter(
+    (id) => !addedIds.has(id)
+  ).length;
 
   return (
     <div>
@@ -243,7 +298,7 @@ export default function SearchPage() {
       )}
 
       {/* Collection selector */}
-      <div className="flex items-center gap-2 mb-4 text-sm">
+      <div className="flex items-center gap-2 mb-4 text-sm flex-wrap">
         <span className="text-gray-500">Add to:</span>
         <select
           value={selectedCollection}
@@ -294,44 +349,129 @@ export default function SearchPage() {
         <div className="bg-red-50 text-red-700 px-4 py-2 rounded-lg mb-4 text-sm">{error}</div>
       )}
 
-      {total > 0 && (
-        <p className="text-sm text-gray-500 mb-3">
-          Showing {results.length} of {total} results
-        </p>
+      {/* Results toolbar: count + bulk select controls */}
+      {results.length > 0 && (
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <p className="text-sm text-gray-500">
+            Showing {results.length} of {total} results
+            {selectedIds.size > 0 && (
+              <span className="ml-2 font-medium text-gray-700">
+                — {selectedIds.size} selected
+              </span>
+            )}
+          </p>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={selectAll}
+              className="text-xs text-gray-500 hover:text-gray-800 underline"
+            >
+              Select All
+            </button>
+            {selectedIds.size > 0 && (
+              <button
+                type="button"
+                onClick={deselectAll}
+                className="text-xs text-gray-500 hover:text-gray-800 underline"
+              >
+                Deselect All
+              </button>
+            )}
+            {selectedCollection && pendingSelectedCount > 0 && (
+              <button
+                type="button"
+                onClick={handleBulkAdd}
+                disabled={bulkAdding}
+                className="text-xs bg-red-500 text-white px-3 py-1.5 rounded-md font-medium hover:bg-red-600 disabled:opacity-50 transition-colors"
+              >
+                {bulkAdding
+                  ? 'Adding...'
+                  : `Add Selected (${pendingSelectedCount})`}
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
       <div className="space-y-3">
         {results.map((example) => (
-          <ExampleCard
-            key={example.id}
-            example={example}
-            actions={
-              selectedCollection && (
-                <button
-                  onClick={() => handleAdd(example.id)}
-                  disabled={addedIds.has(example.id)}
-                  className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
-                    addedIds.has(example.id)
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-red-50 text-red-600 hover:bg-red-100'
-                  }`}
-                >
-                  {addedIds.has(example.id) ? 'Added' : '+ Add'}
-                </button>
-              )
-            }
-          />
+          <div key={example.id} className="flex items-start gap-2">
+            {/* Checkbox for bulk select */}
+            <input
+              type="checkbox"
+              checked={selectedIds.has(example.id)}
+              onChange={() => toggleSelect(example.id)}
+              className="mt-3.5 h-4 w-4 rounded border-gray-300 text-red-500 accent-red-500 flex-shrink-0 cursor-pointer"
+              aria-label={`Select example ${example.id}`}
+            />
+            <div className="flex-1 min-w-0">
+              <ExampleCard
+                example={example}
+                actions={
+                  selectedCollection && (
+                    <button
+                      onClick={() => handleAdd(example.id)}
+                      disabled={addedIds.has(example.id)}
+                      className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
+                        addedIds.has(example.id)
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-red-50 text-red-600 hover:bg-red-100'
+                      }`}
+                    >
+                      {addedIds.has(example.id) ? 'Added' : '+ Add'}
+                    </button>
+                  )
+                }
+              />
+            </div>
+          </div>
         ))}
       </div>
 
+      {/* Empty state: searched but no results */}
       {!loading && results.length === 0 && query && (
-        <p className="text-center text-gray-400 py-12">No results found.</p>
+        <div className="text-center py-16">
+          <p className="text-gray-500 font-medium mb-2">No results found for &ldquo;{query}&rdquo;</p>
+          <p className="text-sm text-gray-400 mb-4">Try a different query or adjust your filters.</p>
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-xs text-red-500 hover:text-red-700 underline"
+            >
+              Clear filters and try again
+            </button>
+          )}
+        </div>
       )}
 
+      {/* Empty state: nothing searched yet */}
       {!query && (
         <div className="text-center text-gray-400 py-16">
-          <p className="text-lg mb-1">Search evaluation datasets</p>
-          <p className="text-sm">Try searching for "math", "capital", or "photosynthesis"</p>
+          <p className="text-lg mb-1 text-gray-500">Search evaluation datasets</p>
+          <p className="text-sm mb-3">Find examples by topic, subject, or question text.</p>
+          <p className="text-xs text-gray-400">
+            Try:{' '}
+            {[
+              'math problems',
+              'python sorting',
+              'commonsense',
+              'photosynthesis',
+              'capital cities',
+            ].map((suggestion, i, arr) => (
+              <span key={suggestion}>
+                <button
+                  type="button"
+                  className="hover:text-red-500 hover:underline transition-colors"
+                  onClick={() => setQuery(suggestion)}
+                >
+                  {suggestion}
+                </button>
+                {i < arr.length - 1 && <span className="mx-1">·</span>}
+              </span>
+            ))}
+          </p>
         </div>
       )}
     </div>
