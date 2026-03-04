@@ -43,8 +43,10 @@ For technical architecture, see [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 cherry-evals/
 ├── CLAUDE.md               # Points to this file
 ├── AGENTS.md               # This file — single source of truth
+├── SKILLS.md               # Agent skills guide
 ├── README.md               # Public-facing for OSS users
 ├── ROADMAP.md              # Development milestones
+├── Dockerfile              # Backend container image
 ├── docs/
 │   ├── VISION.md           # Product vision and design philosophy
 │   └── ARCHITECTURE.md     # Technical architecture and ADRs
@@ -52,6 +54,7 @@ cherry-evals/
 ├── api/                    # FastAPI REST API layer
 │   ├── main.py             # App factory and router registration
 │   ├── routes/             # Endpoint definitions
+│   │   └── analytics.py    # Analytics endpoints
 │   ├── models/             # Pydantic request/response schemas
 │   └── deps.py             # Dependency injection
 │
@@ -63,6 +66,9 @@ cherry-evals/
 │
 ├── core/                   # Business logic
 │   ├── search/             # Search implementations (keyword, semantic, hybrid, intelligent)
+│   │   └── facets.py       # Faceted search (counts by dataset/subject/task_type)
+│   ├── traces/             # Observability and event tracking
+│   │   └── events.py       # Curation event tracking
 │   ├── ingest/             # Ingestion orchestration
 │   ├── convert/            # Format converters
 │   └── export/             # Export adapters
@@ -75,7 +81,18 @@ cherry-evals/
 │   ├── prompts/            # Agent instructions as Python constants (e.g. prompts/search.py)
 │   ├── query_agent.py      # Query understanding: parse NL query → structured params (Gemini Flash)
 │   ├── reranker.py         # Result re-ranker: re-order results by relevance/diversity (Gemini Flash)
+│   ├── search_agent.py     # Autonomous iterative search agent
 │   └── tools/              # Agent tools
+│
+├── mcp_server/             # MCP server for AI agents
+│
+├── frontend/               # React 19 + Tailwind CSS v4 web UI
+│   └── Dockerfile          # Frontend container image
+│
+├── landing/                # Static landing page
+│
+├── deploy/
+│   └── helm/               # Kubernetes Helm chart
 │
 ├── scripts/                # Utility scripts
 ├── tests/                  # Test suite (unit, integration, system)
@@ -115,6 +132,22 @@ uv run alembic revision --autogenerate -m "description"
 # CLI commands
 uv run python -m cherry_evals.cli ingest mmlu
 uv run python -m cherry_evals.cli embed mmlu
+
+# CLI search
+uv run python -m cherry_evals.cli search "reasoning" --mode hybrid --json
+
+# CLI collections
+uv run python -m cherry_evals.cli collections list --json
+
+# MCP server
+uv run python -m mcp_server.server
+
+# Frontend
+cd frontend && npm install && npm run dev
+
+# Docker build
+docker build -t cherry-evals .
+docker build -t cherry-evals-frontend frontend/
 ```
 
 ### Dependency Management
@@ -182,6 +215,129 @@ If unsure whether code works as expected:
 
 ---
 
+## Search Architecture
+
+Cherry Evals supports four search strategies, each building on the previous:
+
+### Keyword Search
+- PostgreSQL `ILIKE` full-text matching
+- Fast, deterministic, zero external dependencies
+- Endpoint: `POST /search`
+
+### Semantic Search
+- Qdrant vector similarity using Google `text-embedding-004` (768 dimensions, cosine)
+- Top-k retrieval with configurable score threshold
+- Endpoint: `POST /search/semantic`
+
+### Hybrid Search
+- Reciprocal Rank Fusion (RRF) combining keyword + semantic results
+- Configurable weights (default: 0.5/0.5)
+- Result deduplication across both sources
+- Endpoint: `POST /search/hybrid`
+
+### Intelligent Search (Agent-Powered)
+Two strategies available via `POST /search/intelligent`:
+
+**Pipeline strategy** (`strategy="pipeline"`):
+1. Query understanding → parse NL query into structured filters (Gemini Flash)
+2. Hybrid search → execute with extracted parameters
+3. Re-ranking → reorder by relevance + diversity (Gemini Flash)
+
+**Agent strategy** (`strategy="agent"`, default):
+1. `SearchAgent` plans which tool to use (keyword/semantic/hybrid)
+2. Executes search with optimized parameters
+3. Evaluates result quality (0-10 score)
+4. If quality < threshold, refines query and iterates (max 3-5 rounds)
+5. Returns best results with full iteration trace
+
+The agent strategy embodies the bitter lesson: let the LLM figure out the best search approach rather than hardcoding heuristics.
+
+### Faceted Search
+- `POST /search/facets` returns counts by dataset, subject, task_type
+- Powers frontend filter dropdowns
+- Applies keyword filter when query is provided
+
+### Graceful Degradation
+All search strategies degrade gracefully:
+- Semantic/hybrid → falls back to keyword if Qdrant unavailable
+- Intelligent → falls back to hybrid → keyword if LLM unavailable
+- Agent → returns best results from whatever iterations completed
+
+---
+
+## Dataset Ingestion
+
+### DatasetAdapter Pattern
+All datasets implement the `DatasetAdapter` ABC (`cherry_evals/ingestion/base.py`):
+
+```python
+class DatasetAdapter(ABC):
+    @property
+    def name(self) -> str: ...           # e.g., "MMLU"
+    @property
+    def hf_dataset_id(self) -> str: ...  # e.g., "cais/mmlu"
+    @property
+    def task_type(self) -> str: ...      # e.g., "multiple_choice"
+
+    @abstractmethod
+    def parse_example(self, row, dataset_id, split) -> Example: ...
+```
+
+### Adapter Registry
+`cherry_evals/ingestion/registry.py` maps CLI names to adapter classes:
+- mmlu, humaneval, gsm8k, hellaswag, truthfulqa, arc, winogrande, piqa, mbpp, boolq
+
+### Adding a New Dataset
+1. Create `cherry_evals/ingestion/{name}.py` implementing `DatasetAdapter`
+2. Add to `ADAPTER_REGISTRY` in `registry.py`
+3. Run: `uv run python -m cherry_evals.cli ingest {name}`
+4. Write tests in `tests/unit/test_adapters.py`
+
+---
+
+## Curation Traces
+
+Every user interaction is tracked as a `CurationEvent` for collective intelligence:
+
+- **search**: query, mode, result count
+- **pick**: example added to collection (with position and score)
+- **remove**: example removed from collection
+- **export**: collection exported (with format)
+
+Events are recorded non-blocking via `core/traces/events.py` — they never slow down or break the main request. Analytics are exposed via `GET /analytics/stats`, `/popular`, `/co-picked/{id}`.
+
+This data powers:
+- Popular examples ("others also picked")
+- Co-selection patterns ("picked together")
+- Quality scoring (pick rate as signal)
+- Future recommendation engine
+
+---
+
+## MCP Server
+
+The MCP server (`mcp_server/server.py`) exposes Cherry Evals as tools for AI agents:
+
+| Tool | Purpose |
+|------|---------|
+| `list_datasets` | Browse available datasets |
+| `get_dataset` | Dataset details and stats |
+| `search_examples` | Keyword search |
+| `semantic_search_examples` | Vector similarity search |
+| `hybrid_search_examples` | Keyword + semantic fusion |
+| `intelligent_search_examples` | LLM-powered agent search |
+| `list_collections` | Browse collections |
+| `create_collection` | Start new collection |
+| `get_collection` | Collection details with examples |
+| `add_to_collection` | Cherry-pick examples |
+| `export_collection` | Export as JSON/JSONL/CSV |
+
+Run: `uv run python -m mcp_server.server` (stdio) or `--http` for remote.
+
+See `SKILLS.md` for the full agent guide.
+
+---
+
 ## Code Style & Organization
 
 * **Naming**:
@@ -221,11 +377,12 @@ If unsure whether code works as expected:
 
 ### Adding New Dataset Ingestion
 
-1. Create ingestion module: `cherry_evals/ingestion/{dataset}.py`
-2. Implement: download → normalize to Example schema → store in Postgres
-3. Add embedding generation support
-4. Register CLI command in `cherry_evals/cli/`
-5. Write tests with sample data
+1. Create adapter: `cherry_evals/ingestion/{dataset}.py`
+2. Implement `DatasetAdapter` ABC (see `base.py`)
+3. Register in `cherry_evals/ingestion/registry.py`
+4. Run: `uv run python -m cherry_evals.cli ingest {dataset}`
+5. Generate embeddings: `uv run python -m cherry_evals.cli embed {dataset}`
+6. Write tests with sample data in `tests/unit/test_adapters.py`
 
 ### Adding New Export Formats
 
