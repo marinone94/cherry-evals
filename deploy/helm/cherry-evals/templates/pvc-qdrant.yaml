@@ -1,0 +1,19 @@
+{{- if .Values.qdrant.enabled -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "cherry-evals.fullname" . }}-qdrant-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cherry-evals.labels" . | nindent 4 }}
+    app.kubernetes.io/component: qdrant
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.qdrant.storage.size }}
+  {{- if .Values.qdrant.storage.storageClass }}
+  storageClassName: {{ .Values.qdrant.storage.storageClass }}
+  {{- end }}
+{{- end }}

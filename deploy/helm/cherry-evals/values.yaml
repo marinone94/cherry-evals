@@ -1,0 +1,84 @@
+replicaCount: 1
+
+api:
+  image:
+    repository: ghcr.io/marinone94/cherry-evals
+    tag: latest
+    pullPolicy: IfNotPresent
+  port: 8000
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+postgres:
+  enabled: true  # Set false to use external
+  image:
+    repository: postgres
+    tag: "16"
+  port: 5432
+  database: cherry_evals
+  username: cherry
+  password: cherry  # Override in production!
+  storage:
+    size: 10Gi
+    storageClass: ""
+
+qdrant:
+  enabled: true  # Set false to use external
+  image:
+    repository: qdrant/qdrant
+    tag: latest
+  port: 6333
+  storage:
+    size: 10Gi
+    storageClass: ""
+
+# External DB config (when postgres.enabled=false)
+externalPostgres:
+  host: ""
+  port: 5432
+  database: cherry_evals
+  username: ""
+  password: ""
+  existingSecret: ""  # Name of existing Secret with key DATABASE_URL
+
+externalQdrant:
+  host: ""
+  port: 6333
+
+config:
+  googleApiKey: ""
+  anthropicApiKey: ""
+  cerebrasApiKey: ""
+  logLevel: INFO
+  # Langfuse (optional)
+  langfusePublicKey: ""
+  langfuseSecretKey: ""
+  langfuseBaseUrl: "https://cloud.langfuse.com"
+
+# Enterprise features
+enterprise:
+  enabled: false
+  licenseKey: ""
+  collectiveIntelligence:
+    enabled: false  # Opt-in to share anonymized curation signals
+    endpoint: "https://api.cherryevals.com/collective"
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: cherry-evals.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+serviceAccount:
+  create: true
+  name: ""

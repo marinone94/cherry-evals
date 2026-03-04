@@ -1,0 +1,73 @@
+Cherry Evals has been deployed successfully!
+
+API Endpoint
+------------
+The API is running inside the cluster. To access it locally:
+
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "cherry-evals.fullname" . }}-api {{ .Values.api.port }}:{{ .Values.api.port }}
+
+Then open: http://localhost:{{ .Values.api.port }}
+Docs:      http://localhost:{{ .Values.api.port }}/docs
+Health:    http://localhost:{{ .Values.api.port }}/health
+
+{{- if .Values.ingress.enabled }}
+
+Ingress
+-------
+  {{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+  {{- end }}
+{{- else }}
+
+Ingress is disabled. To expose the API externally, set ingress.enabled=true in your values
+and configure your ingress controller.
+{{- end }}
+
+{{- if .Values.postgres.enabled }}
+
+Postgres (internal)
+-------------------
+Host: {{ include "cherry-evals.postgresHost" . }}:{{ .Values.postgres.port }}
+DB:   {{ .Values.postgres.database }}
+User: {{ .Values.postgres.username }}
+
+IMPORTANT: The default password is "cherry". Override it in production with:
+  --set postgres.password=<strong-password>
+{{- else }}
+
+Postgres (external)
+-------------------
+Host: {{ .Values.externalPostgres.host }}:{{ .Values.externalPostgres.port }}
+{{- end }}
+
+{{- if .Values.qdrant.enabled }}
+
+Qdrant (internal)
+-----------------
+Service: {{ include "cherry-evals.fullname" . }}-qdrant:{{ .Values.qdrant.port }}
+{{- else }}
+
+Qdrant (external)
+-----------------
+Host: {{ .Values.externalQdrant.host }}:{{ .Values.externalQdrant.port }}
+{{- end }}
+
+{{- if .Values.enterprise.enabled }}
+
+Enterprise Features
+-------------------
+License key configured.
+Collective Intelligence: {{ if .Values.enterprise.collectiveIntelligence.enabled }}ENABLED{{ else }}disabled{{ end }}
+{{- end }}
+
+Configuration
+-------------
+Set API keys via Helm values or a values override file. Example:
+
+  helm upgrade cherry-evals deploy/helm/cherry-evals \
+    --set config.googleApiKey=<key> \
+    --set config.anthropicApiKey=<key> \
+    --set config.cerebrasApiKey=<key> \
+    --set postgres.password=<strong-password>
+
+For full documentation see: https://github.com/marinone94/cherry-evals
