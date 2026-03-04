@@ -1,5 +1,12 @@
-import { useState, useEffect } from 'react';
-import { searchKeyword, searchIntelligent, listCollections, addExamplesToCollection, createCollection } from '../lib/api';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  searchKeyword,
+  searchIntelligent,
+  listCollections,
+  addExamplesToCollection,
+  createCollection,
+  getSearchFacets,
+} from '../lib/api';
 import ExampleCard from '../components/ExampleCard';
 
 export default function SearchPage() {
@@ -17,9 +24,24 @@ export default function SearchPage() {
   const [metadata, setMetadata] = useState(null);
   const [metaExpanded, setMetaExpanded] = useState(true);
 
+  // Facets & filters
+  const [facets, setFacets] = useState({ datasets: [], task_types: [], subjects: [] });
+  const [filterDataset, setFilterDataset] = useState('');
+  const [filterTaskType, setFilterTaskType] = useState('');
+
+  // Load collections and initial facets on mount
   useEffect(() => {
     listCollections()
       .then((data) => setCollections(data.collections || []))
+      .catch(() => {});
+    getSearchFacets(null)
+      .then((data) => setFacets(data))
+      .catch(() => {});
+  }, []);
+
+  const refreshFacets = useCallback((q) => {
+    getSearchFacets(q || null)
+      .then((data) => setFacets(data))
       .catch(() => {});
   }, []);
 
@@ -30,17 +52,23 @@ export default function SearchPage() {
     setError(null);
     setMetadata(null);
     try {
+      const opts = {
+        limit: 50,
+        ...(filterDataset ? { dataset: filterDataset } : {}),
+        ...(filterTaskType ? { task_type: filterTaskType } : {}),
+      };
       if (searchMode === 'intelligent') {
         const data = await searchIntelligent(query.trim(), { limit: 50 });
         setResults(data.results || []);
         setTotal(data.total || 0);
         setMetadata(data.metadata || null);
       } else {
-        const data = await searchKeyword(query.trim(), { limit: 50 });
+        const data = await searchKeyword(query.trim(), opts);
         setResults(data.results || []);
         setTotal(data.total || 0);
       }
       setAddedIds(new Set());
+      refreshFacets(query.trim());
     } catch (err) {
       setError(err.message);
     } finally {
@@ -71,6 +99,13 @@ export default function SearchPage() {
     }
   };
 
+  const clearFilters = () => {
+    setFilterDataset('');
+    setFilterTaskType('');
+  };
+
+  const hasFilters = filterDataset || filterTaskType;
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-4">Search Examples</h1>
@@ -93,7 +128,7 @@ export default function SearchPage() {
       </form>
 
       {/* Search mode toggle */}
-      <div className="flex items-center gap-1 mb-4">
+      <div className="flex items-center gap-1 mb-3">
         <button
           type="button"
           onClick={() => { setSearchMode('keyword'); setMetadata(null); }}
@@ -117,6 +152,47 @@ export default function SearchPage() {
           Intelligent (AI)
         </button>
       </div>
+
+      {/* Filter bar */}
+      {searchMode === 'keyword' && (
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <select
+            value={filterDataset}
+            onChange={(e) => setFilterDataset(e.target.value)}
+            className="border border-gray-300 rounded px-2 py-1 text-xs text-gray-700"
+          >
+            <option value="">All datasets</option>
+            {facets.datasets.map((d) => (
+              <option key={d.name} value={d.name}>
+                {d.name} ({d.count})
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={filterTaskType}
+            onChange={(e) => setFilterTaskType(e.target.value)}
+            className="border border-gray-300 rounded px-2 py-1 text-xs text-gray-700"
+          >
+            <option value="">All task types</option>
+            {facets.task_types.map((t) => (
+              <option key={t.name} value={t.name}>
+                {t.name} ({t.count})
+              </option>
+            ))}
+          </select>
+
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-xs text-gray-500 hover:text-red-500 underline"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Intelligent search metadata banner */}
       {metadata && (

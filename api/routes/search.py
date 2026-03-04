@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from api.models.search import (
+    FacetRequest,
+    FacetResponse,
     HybridSearchRequest,
     IntelligentSearchRequest,
     IntelligentSearchResponse,
@@ -27,15 +29,17 @@ def search(request: SearchRequest, db: Session = Depends(get_db)):
     """Search examples by keyword.
 
     Searches across question and answer text using pattern matching.
-    Supports filtering by dataset and subject.
+    Supports filtering by dataset, subject, and task_type, and sort options.
     """
     results, total = keyword_search(
         db=db,
         query=request.query,
         dataset_name=request.dataset,
         subject=request.subject,
+        task_type=request.task_type,
         limit=request.limit,
         offset=request.offset,
+        sort_by=request.sort_by,
     )
 
     return SearchResponse(
@@ -95,6 +99,7 @@ def search_hybrid(request: HybridSearchRequest, db: Session = Depends(get_db)):
             query=request.query,
             dataset_name=request.dataset,
             subject=request.subject,
+            task_type=request.task_type,
             limit=request.limit,
             offset=request.offset,
             keyword_weight=request.keyword_weight,
@@ -109,6 +114,7 @@ def search_hybrid(request: HybridSearchRequest, db: Session = Depends(get_db)):
             query=request.query,
             dataset_name=request.dataset,
             subject=request.subject,
+            task_type=request.task_type,
             limit=request.limit,
             offset=request.offset,
         )
@@ -150,3 +156,16 @@ def search_intelligent(request: IntelligentSearchRequest, db: Session = Depends(
         limit=request.limit,
         metadata=metadata,
     )
+
+
+@router.post("/facets", response_model=FacetResponse)
+def get_facets(request: FacetRequest, db: Session = Depends(get_db)):
+    """Return facet counts grouped by dataset, subject, and task_type.
+
+    When *query* is provided the counts mirror what keyword search would return.
+    When *query* is None (or omitted) counts cover all examples.
+    """
+    from core.search.facets import get_facets as _get_facets
+
+    facets = _get_facets(db=db, query=request.query)
+    return FacetResponse(**facets)

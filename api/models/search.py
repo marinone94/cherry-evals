@@ -11,8 +11,13 @@ class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1, description="Search query string")
     dataset: str | None = Field(None, description="Filter by dataset name")
     subject: str | None = Field(None, description="Filter by subject")
+    task_type: str | None = Field(None, description="Filter by dataset task_type")
     limit: int = Field(20, ge=1, le=100, description="Max results to return")
     offset: int = Field(0, ge=0, description="Results offset for pagination")
+    sort_by: str = Field(
+        "relevance",
+        description="Sort order: 'relevance' (by id), 'newest' (created_at desc), 'dataset'",
+    )
 
 
 class SearchResultItem(BaseModel):
@@ -56,6 +61,7 @@ class HybridSearchRequest(BaseModel):
     query: str = Field(..., min_length=1, description="Search query string")
     dataset: str | None = Field(None, description="Filter by dataset name")
     subject: str | None = Field(None, description="Filter by subject")
+    task_type: str | None = Field(None, description="Filter by dataset task_type")
     limit: int = Field(20, ge=1, le=100, description="Max results to return")
     offset: int = Field(0, ge=0, description="Results offset for pagination")
     keyword_weight: float = Field(0.4, ge=0, le=1, description="Weight for keyword results")
@@ -78,3 +84,22 @@ class IntelligentSearchResponse(SearchResponse):
         default_factory=dict,
         description="Query understanding and re-ranking metadata",
     )
+
+
+class FacetRequest(BaseModel):
+    """Request model for faceted search counts."""
+
+    query: str | None = Field(None, description="Optional keyword; if None, counts all examples")
+
+
+class FacetResponse(BaseModel):
+    """Response model for faceted search counts."""
+
+    datasets: list[dict[str, Any]] = Field(description='[{"name": "MMLU", "count": 14042}, ...]')
+    subjects: list[dict[str, Any]] = Field(
+        description='[{"name": "anatomy", "dataset": "MMLU", "count": 135}, ...]'
+    )
+    task_types: list[dict[str, Any]] = Field(
+        description='[{"name": "multiple_choice", "count": 14042}, ...]'
+    )
+    total: int

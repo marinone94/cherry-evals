@@ -47,3 +47,32 @@ def get_dataset_stats(dataset_id: int, db: Session = Depends(get_db)):
         "example_count": example_count,
         "stats": dataset.stats,
     }
+
+
+@router.get("/{dataset_id}/subjects")
+def get_dataset_subjects(dataset_id: int, db: Session = Depends(get_db)):
+    """Return the subject breakdown for a specific dataset.
+
+    Each entry contains the subject name and the number of examples with that subject.
+    Examples without a subject in their metadata are excluded.
+    """
+    dataset = db.get(Dataset, dataset_id)
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    rows = db.execute(
+        select(
+            Example.example_metadata["subject"].as_string().label("subject"),
+            func.count(Example.id).label("count"),
+        )
+        .where(Example.dataset_id == dataset_id)
+        .where(Example.example_metadata["subject"].as_string() != None)  # noqa: E711
+        .group_by(Example.example_metadata["subject"].as_string())
+        .order_by(Example.example_metadata["subject"].as_string())
+    ).all()
+
+    subjects = [
+        {"subject": row.subject, "count": row.count} for row in rows if row.subject is not None
+    ]
+
+    return {"dataset_id": dataset_id, "dataset_name": dataset.name, "subjects": subjects}
