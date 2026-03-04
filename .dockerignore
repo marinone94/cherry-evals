@@ -34,10 +34,10 @@ frontend/dist
 
 # Docs and meta (not needed in image)
 docs/
-*.md
-!README.md
-LICENSE
 ROADMAP.md
+AGENTS.md
+SKILLS.md
+CLAUDE.md
 
 # Tests (not needed in production image)
 tests/
