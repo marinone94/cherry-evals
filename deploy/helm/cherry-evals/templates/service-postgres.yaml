@@ -1,0 +1,19 @@
+{{- if .Values.postgres.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cherry-evals.postgresHost" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cherry-evals.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "cherry-evals.postgres.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: postgres
+      port: {{ .Values.postgres.port }}
+      targetPort: postgres
+      protocol: TCP
+{{- end }}
