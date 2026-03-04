@@ -627,13 +627,24 @@ def test_arc_parse_example_missing_fields():
 
 
 def test_registry_contains_all_adapters():
-    """All 6 expected adapters must be registered."""
-    expected_keys = {"mmlu", "humaneval", "gsm8k", "hellaswag", "truthfulqa", "arc"}
+    """All 10 expected adapters must be registered."""
+    expected_keys = {
+        "mmlu",
+        "humaneval",
+        "gsm8k",
+        "hellaswag",
+        "truthfulqa",
+        "arc",
+        "winogrande",
+        "piqa",
+        "mbpp",
+        "boolq",
+    }
     assert set(ADAPTER_REGISTRY.keys()) == expected_keys
 
 
 def test_registry_adapter_count():
-    assert len(ADAPTER_REGISTRY) == 6
+    assert len(ADAPTER_REGISTRY) == 10
 
 
 def test_registry_mmlu_class():
