@@ -206,17 +206,22 @@
 **Goal:** LLM-powered query understanding and result ranking.
 
 ### Query Understanding
-- [ ] Parse natural language queries
-- [ ] Extract structured filters
-- [ ] Query expansion with related concepts
+- [x] Parse natural language queries (Gemini Flash)
+- [x] Extract structured filters (dataset, subject, task_type)
+- [x] Query expansion with related concepts
 
 ### Result Ranking
-- [ ] Re-rank results by relevance and diversity
-- [ ] Explain ranking decisions
+- [x] Re-rank results by relevance and diversity (Gemini Flash)
+- [x] Explain ranking decisions (metadata in response)
+
+### MCP Agent Tools
+- [x] `semantic_search_examples` — vector similarity search
+- [x] `hybrid_search_examples` — keyword + semantic fusion
+- [x] `intelligent_search_examples` — full LLM-powered pipeline
 
 ### Success Criteria
-- [ ] Natural language queries return high-quality results
-- [ ] Agent search quality >= hybrid search
+- [x] Natural language queries return high-quality results
+- [ ] Agent search quality >= hybrid search (pending real-world testing)
 
 ---
 
