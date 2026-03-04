@@ -521,6 +521,145 @@ def export_collection(
         db.close()
 
 
+# ---------------------------------------------------------------------------
+# Agentic ingestion tools
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def discover_dataset(description: str) -> str:
+    """Discover a HuggingFace dataset matching a natural language description.
+
+    Uses an LLM to find the best matching dataset. You can also pass a direct
+    HuggingFace dataset ID (e.g. "openai/gsm8k") to skip discovery.
+
+    Args:
+        description: What kind of dataset you're looking for, or a direct HF ID.
+    """
+    from agents.ingestion_agent import IngestionAgent
+
+    agent = IngestionAgent()
+    result = agent.discover_dataset(description)
+    if not result:
+        return json.dumps({"error": "No matching dataset found."})
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+def ingest_discovered_dataset(
+    description: str,
+    hf_dataset_id: str | None = None,
+    hf_config: str | None = None,
+    max_examples: int | None = None,
+) -> str:
+    """Ingest an arbitrary HuggingFace dataset using LLM-generated parsing logic.
+
+    The agent discovers the dataset (or uses the provided ID), inspects its
+    schema, generates a parser, validates it, and runs ingestion.
+
+    For known datasets (mmlu, humaneval, etc.), use the CLI ingest command
+    instead — it uses hand-tuned adapters.
+
+    Args:
+        description: What kind of dataset to ingest, or a plain description.
+        hf_dataset_id: Optional direct HuggingFace dataset ID (skips discovery).
+        hf_config: Optional HuggingFace config/subset name.
+        max_examples: Optional limit on number of examples to ingest.
+    """
+    from agents.ingestion_agent import IngestionAgent
+
+    agent = IngestionAgent(max_examples=max_examples)
+    result = agent.ingest(
+        description=description,
+        hf_dataset_id=hf_dataset_id,
+        hf_config=hf_config,
+    )
+
+    output = {
+        "success": result.success,
+        "dataset_name": result.dataset_name,
+        "total_examples": result.total_examples,
+        "splits": result.splits,
+    }
+    if result.errors:
+        output["errors"] = result.errors
+    if result.plan:
+        output["explanation"] = result.plan.explanation
+    if result.adapter_code:
+        output["adapter_code_available"] = True
+
+    return json.dumps(output, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Agentic export tools
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def export_collection_custom(
+    collection_id: int,
+    format_description: str,
+) -> str:
+    """Export a collection to any format using LLM-generated conversion logic.
+
+    For standard formats (json, jsonl, csv), use export_collection instead.
+    This tool handles custom formats like "Inspect AI", "LangSmith",
+    "EleutherAI harness", or any user-described schema.
+
+    Args:
+        collection_id: The ID of the collection to export.
+        format_description: Target format (e.g. "Inspect AI dataset format",
+            "LangSmith", or a detailed format specification).
+    """
+    from agents.export_agent import ExportAgent
+
+    db = _get_db()
+    try:
+        coll = db.get(Collection, collection_id)
+        if not coll:
+            return json.dumps({"error": f"Collection {collection_id} not found"})
+
+        examples = (
+            db.execute(
+                select(Example)
+                .join(CollectionExample, CollectionExample.example_id == Example.id)
+                .where(CollectionExample.collection_id == collection_id)
+                .order_by(CollectionExample.added_at)
+            )
+            .scalars()
+            .all()
+        )
+
+        dataset_ids = {ex.dataset_id for ex in examples}
+        dataset_names = {}
+        if dataset_ids:
+            datasets = (
+                db.execute(select(Dataset).where(Dataset.id.in_(dataset_ids))).scalars().all()
+            )
+            dataset_names = {ds.id: ds.name for ds in datasets}
+
+        agent = ExportAgent()
+        result = agent.export(examples, format_description, dataset_names)
+
+        output = {
+            "success": result.success,
+            "num_examples": result.num_examples,
+            "file_extension": result.file_extension,
+            "content_type": result.content_type,
+        }
+        if result.success:
+            output["content"] = result.content
+        if result.errors:
+            output["errors"] = result.errors
+        if result.plan:
+            output["explanation"] = result.plan.explanation
+
+        return json.dumps(output, indent=2)
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     transport = "streamable-http" if "--http" in sys.argv else "stdio"
     mcp.run(transport=transport)
