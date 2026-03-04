@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 from api.models.search import (
     HybridSearchRequest,
+    IntelligentSearchRequest,
+    IntelligentSearchResponse,
     SearchRequest,
     SearchResponse,
     SearchResultItem,
@@ -118,4 +120,33 @@ def search_hybrid(request: HybridSearchRequest, db: Session = Depends(get_db)):
         query=request.query,
         offset=request.offset,
         limit=request.limit,
+    )
+
+
+@router.post("/intelligent", response_model=IntelligentSearchResponse)
+def search_intelligent(request: IntelligentSearchRequest, db: Session = Depends(get_db)):
+    """LLM-powered intelligent search with query understanding and result re-ranking.
+
+    Uses Gemini Flash to parse the natural language query into structured
+    parameters (expanded query, dataset filter, subject filter), runs hybrid
+    search, and re-ranks results for relevance and diversity.
+
+    Falls back gracefully if LLM calls or semantic search are unavailable.
+    """
+    from core.search.intelligent import intelligent_search
+
+    results, total, metadata = intelligent_search(
+        db=db,
+        query=request.query,
+        limit=request.limit,
+        offset=request.offset,
+    )
+
+    return IntelligentSearchResponse(
+        results=[SearchResultItem(**r) for r in results],
+        total=total,
+        query=request.query,
+        offset=request.offset,
+        limit=request.limit,
+        metadata=metadata,
     )

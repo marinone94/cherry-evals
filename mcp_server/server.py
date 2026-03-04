@@ -22,7 +22,10 @@ from mcp.server.fastmcp import FastMCP
 from sqlalchemy import func, select
 
 from core.export.formats import to_csv, to_json, to_jsonl
+from core.search.hybrid import hybrid_search
+from core.search.intelligent import intelligent_search
 from core.search.keyword import keyword_search
+from core.search.semantic import semantic_search
 from db.postgres.base import SessionLocal
 from db.postgres.models import (
     Collection,
@@ -140,6 +143,124 @@ def search_examples(
             db, query, dataset_name=dataset_name, subject=subject, limit=limit
         )
         return json.dumps({"results": results, "total": total}, indent=2)
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def semantic_search_examples(
+    query: str,
+    collection: str = "mmlu_embeddings",
+    subject: str | None = None,
+    limit: int = 20,
+    score_threshold: float | None = None,
+) -> str:
+    """Search for examples using semantic (vector) similarity.
+
+    Embeds the query and finds nearest neighbors in the vector database.
+    Requires embeddings to be generated for the target collection.
+
+    Args:
+        query: Natural language search query.
+        collection: Qdrant collection to search (default: mmlu_embeddings).
+        subject: Optional filter by subject in payload.
+        limit: Maximum number of results to return (default 20, max 100).
+        score_threshold: Minimum similarity score threshold (0-1).
+    """
+    limit = min(limit, 100)
+    try:
+        results = semantic_search(
+            query=query,
+            collection_name=collection,
+            limit=limit,
+            score_threshold=score_threshold,
+            subject=subject,
+        )
+        return json.dumps({"results": results, "total": len(results)}, indent=2)
+    except Exception as exc:
+        return json.dumps({"error": f"Semantic search unavailable: {exc}"})
+
+
+@mcp.tool()
+def hybrid_search_examples(
+    query: str,
+    dataset_name: str | None = None,
+    subject: str | None = None,
+    collection: str = "mmlu_embeddings",
+    limit: int = 20,
+    keyword_weight: float = 0.4,
+    semantic_weight: float = 0.6,
+) -> str:
+    """Search for examples using hybrid keyword + semantic search.
+
+    Combines keyword matching and vector similarity using Reciprocal Rank
+    Fusion (RRF). Falls back to keyword-only if semantic search is unavailable.
+
+    Args:
+        query: The search query string.
+        dataset_name: Optional filter to search only within a specific dataset.
+        subject: Optional filter by subject.
+        collection: Qdrant collection to search (default: mmlu_embeddings).
+        limit: Maximum number of results to return (default 20, max 100).
+        keyword_weight: Weight for keyword results (0-1, default 0.4).
+        semantic_weight: Weight for semantic results (0-1, default 0.6).
+    """
+    limit = min(limit, 100)
+    db = _get_db()
+    try:
+        results, total = hybrid_search(
+            db=db,
+            query=query,
+            dataset_name=dataset_name,
+            subject=subject,
+            limit=limit,
+            offset=0,
+            keyword_weight=keyword_weight,
+            semantic_weight=semantic_weight,
+            collection_name=collection,
+        )
+        return json.dumps({"results": results, "total": total}, indent=2)
+    except Exception as exc:
+        # Fall back to keyword search
+        results, total = keyword_search(
+            db=db, query=query, dataset_name=dataset_name, subject=subject, limit=limit
+        )
+        return json.dumps({"results": results, "total": total, "fallback": str(exc)}, indent=2)
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def intelligent_search_examples(
+    query: str,
+    limit: int = 20,
+    collection: str | None = None,
+) -> str:
+    """Search for examples using LLM-powered intelligent search.
+
+    Uses Gemini Flash to understand the natural language query and extract
+    filters (dataset, subject, task type), runs hybrid search with the
+    expanded query, then re-ranks results for relevance and diversity.
+
+    Falls back gracefully if LLM calls or semantic search are unavailable.
+
+    Args:
+        query: Natural language search query (e.g. "hard science questions").
+        limit: Maximum number of results to return (default 20, max 100).
+        collection: Optional Qdrant collection override. If None, the
+                    collection is inferred from the detected dataset.
+    """
+    limit = min(limit, 100)
+    db = _get_db()
+    try:
+        results, total, metadata = intelligent_search(
+            db=db,
+            query=query,
+            limit=limit,
+            offset=0,
+            collection_name=collection,
+        )
+        return json.dumps({"results": results, "total": total, "metadata": metadata}, indent=2)
     finally:
         db.close()
 
