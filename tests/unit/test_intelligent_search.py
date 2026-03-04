@@ -32,6 +32,13 @@ def _gemini_response(text: str) -> MagicMock:
     return response
 
 
+def _mock_settings_with_key() -> MagicMock:
+    """Return a settings mock with a non-empty google_api_key."""
+    mock_settings = MagicMock()
+    mock_settings.google_api_key = "fake-api-key"
+    return mock_settings
+
+
 # ---------------------------------------------------------------------------
 # parse_query tests
 # ---------------------------------------------------------------------------
@@ -51,7 +58,10 @@ class TestParseQuery:
         }
         mock_response = _gemini_response(json.dumps(payload))
 
-        with patch("agents.query_agent.genai") as mock_genai:
+        with (
+            patch("agents.query_agent.settings", _mock_settings_with_key()),
+            patch("agents.query_agent.genai") as mock_genai,
+        ):
             mock_client = MagicMock()
             mock_genai.Client.return_value = mock_client
             mock_client.models.generate_content.return_value = mock_response
@@ -70,7 +80,10 @@ class TestParseQuery:
         """If Gemini returns invalid JSON, original query is used as fallback."""
         mock_response = _gemini_response("not valid json at all")
 
-        with patch("agents.query_agent.genai") as mock_genai:
+        with (
+            patch("agents.query_agent.settings", _mock_settings_with_key()),
+            patch("agents.query_agent.genai") as mock_genai,
+        ):
             mock_client = MagicMock()
             mock_genai.Client.return_value = mock_client
             mock_client.models.generate_content.return_value = mock_response
@@ -86,7 +99,10 @@ class TestParseQuery:
 
     def test_returns_fallback_on_llm_exception(self):
         """If Gemini raises an exception, original query is returned unchanged."""
-        with patch("agents.query_agent.genai") as mock_genai:
+        with (
+            patch("agents.query_agent.settings", _mock_settings_with_key()),
+            patch("agents.query_agent.genai") as mock_genai,
+        ):
             mock_client = MagicMock()
             mock_genai.Client.return_value = mock_client
             mock_client.models.generate_content.side_effect = RuntimeError("API down")
@@ -122,7 +138,10 @@ class TestParseQuery:
         fenced = f"```json\n{json.dumps(payload)}\n```"
         mock_response = _gemini_response(fenced)
 
-        with patch("agents.query_agent.genai") as mock_genai:
+        with (
+            patch("agents.query_agent.settings", _mock_settings_with_key()),
+            patch("agents.query_agent.genai") as mock_genai,
+        ):
             mock_client = MagicMock()
             mock_genai.Client.return_value = mock_client
             mock_client.models.generate_content.return_value = mock_response
@@ -145,7 +164,10 @@ class TestParseQuery:
         }
         mock_response = _gemini_response(json.dumps(payload))
 
-        with patch("agents.query_agent.genai") as mock_genai:
+        with (
+            patch("agents.query_agent.settings", _mock_settings_with_key()),
+            patch("agents.query_agent.genai") as mock_genai,
+        ):
             mock_client = MagicMock()
             mock_genai.Client.return_value = mock_client
             mock_client.models.generate_content.return_value = mock_response
@@ -165,7 +187,10 @@ class TestParseQuery:
         payload = {"dataset": "GSM8K", "explanation": "Math"}
         mock_response = _gemini_response(json.dumps(payload))
 
-        with patch("agents.query_agent.genai") as mock_genai:
+        with (
+            patch("agents.query_agent.settings", _mock_settings_with_key()),
+            patch("agents.query_agent.genai") as mock_genai,
+        ):
             mock_client = MagicMock()
             mock_genai.Client.return_value = mock_client
             mock_client.models.generate_content.return_value = mock_response
@@ -194,7 +219,10 @@ class TestRerankResults:
         }
         mock_response = _gemini_response(json.dumps(rerank_payload))
 
-        with patch("agents.reranker.genai") as mock_genai:
+        with (
+            patch("agents.reranker.settings", _mock_settings_with_key()),
+            patch("agents.reranker.genai") as mock_genai,
+        ):
             mock_client = MagicMock()
             mock_genai.Client.return_value = mock_client
             mock_client.models.generate_content.return_value = mock_response
@@ -210,7 +238,10 @@ class TestRerankResults:
         """If Gemini raises an exception, original order is preserved."""
         results = [_make_result(1), _make_result(2), _make_result(3)]
 
-        with patch("agents.reranker.genai") as mock_genai:
+        with (
+            patch("agents.reranker.settings", _mock_settings_with_key()),
+            patch("agents.reranker.genai") as mock_genai,
+        ):
             mock_client = MagicMock()
             mock_genai.Client.return_value = mock_client
             mock_client.models.generate_content.side_effect = RuntimeError("API error")
@@ -227,7 +258,10 @@ class TestRerankResults:
         results = [_make_result(1), _make_result(2)]
         mock_response = _gemini_response("not json")
 
-        with patch("agents.reranker.genai") as mock_genai:
+        with (
+            patch("agents.reranker.settings", _mock_settings_with_key()),
+            patch("agents.reranker.genai") as mock_genai,
+        ):
             mock_client = MagicMock()
             mock_genai.Client.return_value = mock_client
             mock_client.models.generate_content.return_value = mock_response
@@ -248,7 +282,10 @@ class TestRerankResults:
         }
         mock_response = _gemini_response(json.dumps(rerank_payload))
 
-        with patch("agents.reranker.genai") as mock_genai:
+        with (
+            patch("agents.reranker.settings", _mock_settings_with_key()),
+            patch("agents.reranker.genai") as mock_genai,
+        ):
             mock_client = MagicMock()
             mock_genai.Client.return_value = mock_client
             mock_client.models.generate_content.return_value = mock_response
@@ -262,7 +299,10 @@ class TestRerankResults:
 
     def test_returns_empty_list_for_empty_input(self):
         """Empty input should return empty list without calling the LLM."""
-        with patch("agents.reranker.genai") as mock_genai:
+        with (
+            patch("agents.reranker.settings", _mock_settings_with_key()),
+            patch("agents.reranker.genai") as mock_genai,
+        ):
             mock_client = MagicMock()
             mock_genai.Client.return_value = mock_client
 
@@ -295,7 +335,10 @@ class TestRerankResults:
         }
         mock_response = _gemini_response(json.dumps(rerank_payload))
 
-        with patch("agents.reranker.genai") as mock_genai:
+        with (
+            patch("agents.reranker.settings", _mock_settings_with_key()),
+            patch("agents.reranker.genai") as mock_genai,
+        ):
             mock_client = MagicMock()
             mock_genai.Client.return_value = mock_client
             mock_client.models.generate_content.return_value = mock_response
