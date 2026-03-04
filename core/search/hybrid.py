@@ -66,6 +66,7 @@ def hybrid_search(
     query: str,
     dataset_name: str | None = None,
     subject: str | None = None,
+    task_type: str | None = None,
     limit: int = 20,
     offset: int = 0,
     keyword_weight: float = 0.4,
@@ -81,6 +82,7 @@ def hybrid_search(
         query: Search query string
         dataset_name: Optional filter by dataset name
         subject: Optional filter by subject
+        task_type: Optional filter by dataset task_type
         limit: Max results to return
         offset: Pagination offset
         keyword_weight: Weight for keyword results (0-1)
@@ -99,6 +101,7 @@ def hybrid_search(
         query=query,
         dataset_name=dataset_name,
         subject=subject,
+        task_type=task_type,
         limit=fetch_limit,
         offset=0,
     )

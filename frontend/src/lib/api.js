@@ -51,6 +51,12 @@ export const searchIntelligent = (query, options = {}) =>
     body: JSON.stringify({ query, ...options }),
   });
 
+export const getSearchFacets = (query) =>
+  request('/search/facets', {
+    method: 'POST',
+    body: JSON.stringify({ query: query || null }),
+  });
+
 // Collections
 export const listCollections = () => request('/collections');
 export const getCollection = (id) => request(`/collections/${id}`);
