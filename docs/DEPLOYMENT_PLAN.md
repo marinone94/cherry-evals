@@ -79,7 +79,7 @@ At **1,000 searches/day** (mix of keyword and agentic):
 - With free tier: probably **$0-2/month** for a while
 
 ### Embedding Costs
-- text-embedding-004 is free via Gemini API (but see migration note below)
+- text-embedding-005 is free via Gemini API
 - 100k examples × ~100 tokens each = 10M tokens one-time
 - Cost: **$0** (free tier) or **$1** on paid tier
 
@@ -90,17 +90,9 @@ At **1,000 searches/day** (mix of keyword and agentic):
 
 ---
 
-## ⚠️ URGENT: Embedding Model Migration
+## Embedding Model
 
-**`text-embedding-004` was scheduled for discontinuation on November 18, 2025.**
-
-We are currently using it. We need to migrate to one of:
-1. **`text-embedding-005`** — drop-in replacement, same API
-2. **`gemini-embedding-001`** — newer, may have better quality
-
-**Impact:** All existing embeddings in Qdrant need to be regenerated (you can't mix embedding models). This is a one-time operation.
-
-**Action required:** Migrate before first deployment. Update `cherry_evals/config.py` and `cherry_evals/embeddings/` to use the new model.
+Currently using **`text-embedding-005`** (migrated from discontinued `text-embedding-004`). Same 768 dimensions, drop-in replacement. Any existing Qdrant collections using `text-embedding-004` need to be regenerated.
 
 ---
 

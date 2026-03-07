@@ -25,7 +25,7 @@ For technical architecture, see [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 - **Backend**: [FastAPI](https://fastapi.tiangolo.com/)
 - **Relational DB**: PostgreSQL + [SQLAlchemy](https://www.sqlalchemy.org/)
 - **Vector DB**: [Qdrant](https://qdrant.tech/)
-- **Embeddings**: Google text-embedding-004 (swappable via provider interface)
+- **Embeddings**: Google text-embedding-005 (swappable via provider interface)
 - **LLM (reasoning)**: Anthropic Claude (via Anthropic SDK)
 - **LLM (light tasks)**: Gemini Flash (via Google GenAI SDK)
 - **LLM (speed)**: Cerebras
@@ -225,7 +225,7 @@ Cherry Evals supports four search strategies, each building on the previous:
 - Endpoint: `POST /search`
 
 ### Semantic Search
-- Qdrant vector similarity using Google `text-embedding-004` (768 dimensions, cosine)
+- Qdrant vector similarity using Google `text-embedding-005` (768 dimensions, cosine)
 - Top-k retrieval with configurable score threshold
 - Endpoint: `POST /search/semantic`
 
@@ -414,8 +414,10 @@ ANTHROPIC_API_KEY=your-anthropic-key
 CEREBRAS_API_KEY=your-cerebras-key
 
 # Database connections
+# Neon (external Postgres) connection strings include ?sslmode=require — SQLAlchemy handles it automatically
 DATABASE_URL=postgresql://cherry:cherry@localhost:5433/cherry_evals
 QDRANT_URL=http://localhost:6333
+QDRANT_API_KEY=  # optional — set for Qdrant Cloud, leave empty for local
 
 # Langfuse tracing (optional)
 LANGFUSE_PUBLIC_KEY=your-public-key

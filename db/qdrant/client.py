@@ -7,8 +7,15 @@ from cherry_evals.config import settings
 
 
 def get_qdrant_client() -> QdrantClient:
-    """Get Qdrant client instance."""
-    return QdrantClient(url=settings.qdrant_url)
+    """Get Qdrant client instance.
+
+    Connects with API key when ``QDRANT_API_KEY`` is set (Qdrant Cloud),
+    otherwise connects without authentication (local / self-hosted).
+    """
+    kwargs: dict = {"url": settings.qdrant_url}
+    if settings.qdrant_api_key:
+        kwargs["api_key"] = settings.qdrant_api_key
+    return QdrantClient(**kwargs)
 
 
 def create_collection(

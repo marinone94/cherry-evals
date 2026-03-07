@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     # Database connections
     database_url: str = "postgresql://cherry:cherry@localhost:5433/cherry_evals"
     qdrant_url: str = "http://localhost:6333"
+    # Qdrant Cloud API key (optional — leave empty for local/unauthenticated Qdrant)
+    qdrant_api_key: str = ""
 
     # Langfuse tracing (optional)
     langfuse_public_key: str = ""
