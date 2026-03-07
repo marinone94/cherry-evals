@@ -17,6 +17,7 @@ def test_settings_default_values(monkeypatch, tmp_path):
         "CEREBRAS_API_KEY",
         "DATABASE_URL",
         "QDRANT_URL",
+        "QDRANT_API_KEY",
         "LANGFUSE_PUBLIC_KEY",
         "LANGFUSE_SECRET_KEY",
         "LANGFUSE_BASE_URL",
@@ -33,6 +34,8 @@ def test_settings_default_values(monkeypatch, tmp_path):
     assert settings.cerebras_api_key == ""
     assert settings.database_url == "postgresql://cherry:cherry@localhost:5433/cherry_evals"
     assert settings.qdrant_url == "http://localhost:6333"
+    # qdrant_api_key defaults to empty string (local/unauthenticated mode)
+    assert settings.qdrant_api_key == ""
     assert settings.langfuse_base_url == "https://cloud.langfuse.com"
     assert settings.cherry_data_dir == Path("./data")
     assert settings.cherry_log_level == "INFO"
@@ -77,3 +80,22 @@ def test_settings_extra_fields_ignored(monkeypatch):
     settings = Settings()
 
     assert not hasattr(settings, "random_env_var")
+
+
+def test_settings_qdrant_api_key_override(monkeypatch):
+    """Test that QDRANT_API_KEY can be set for Qdrant Cloud."""
+    monkeypatch.setenv("QDRANT_API_KEY", "my-qdrant-cloud-key")
+
+    settings = Settings()
+
+    assert settings.qdrant_api_key == "my-qdrant-cloud-key"
+
+
+def test_settings_qdrant_api_key_empty_by_default(monkeypatch, tmp_path):
+    """Test that QDRANT_API_KEY defaults to empty string (local mode)."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("QDRANT_API_KEY", raising=False)
+
+    settings = Settings()
+
+    assert settings.qdrant_api_key == ""

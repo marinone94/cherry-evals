@@ -31,12 +31,12 @@ def _get_provider(model: str) -> EmbeddingProvider:
     if model.startswith("text-embedding-"):
         return GoogleEmbeddingProvider(model=model)
 
-    raise ValueError(f"Unknown embedding model: {model}. Available: text-embedding-004")
+    raise ValueError(f"Unknown embedding model: {model}. Available: text-embedding-005")
 
 
 def generate_embeddings_for_dataset(
     dataset_name: str,
-    model: str = "text-embedding-004",
+    model: str = "text-embedding-005",
     batch_size: int = 100,
     limit: int | None = None,
 ) -> dict[str, Any]:
@@ -44,7 +44,7 @@ def generate_embeddings_for_dataset(
 
     Args:
         dataset_name: Name of the dataset (e.g., "MMLU")
-        model: Embedding model to use (e.g., "text-embedding-004")
+        model: Embedding model to use (e.g., "text-embedding-005")
         batch_size: Number of examples to process in each batch
         limit: Optional limit on number of examples (for testing)
 

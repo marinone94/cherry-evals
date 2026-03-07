@@ -8,7 +8,7 @@
 | Backend | FastAPI | Async, auto-docs, Pydantic integration |
 | Relational DB | PostgreSQL + SQLAlchemy | Robust, full-text search, JSON support |
 | Vector DB | Qdrant | Purpose-built, rich filtering, good Python client |
-| Embeddings | Google text-embedding-004 (swappable) | 768 dims, good quality, available API key |
+| Embeddings | Google text-embedding-005 (swappable) | 768 dims, good quality, available API key |
 | LLM (reasoning) | Anthropic Claude | Best reasoning quality, available key |
 | LLM (light tasks) | Gemini Flash | Fast, cheap, available key |
 | LLM (speed) | Cerebras | Ultra-fast inference, available key |
@@ -98,7 +98,7 @@ collection_examples (join table)
 ### Qdrant
 
 One collection per dataset (e.g., `mmlu_embeddings`):
-- **Vector**: embedding from text-embedding-004 (768 dims)
+- **Vector**: embedding from text-embedding-005 (768 dims)
 - **Payload**: example_id, dataset_id, question, subject, split, answer
 
 ---
@@ -107,7 +107,7 @@ One collection per dataset (e.g., `mmlu_embeddings`):
 
 Embeddings are generated per-example by combining question + choices into a single text. The embedding provider is abstracted behind a common interface to allow swapping providers.
 
-**Current provider**: Google `text-embedding-004` (768 dimensions)
+**Current provider**: Google `text-embedding-005` (768 dimensions)
 
 **Provider interface**:
 ```python
@@ -190,7 +190,7 @@ Every search → pick → export flow is recorded as a "curation trace":
 ## Decision Log
 
 ### ADR-001: Google Embeddings as Default
-**Decision**: Use Google text-embedding-004 (768 dims) as default embedding model.
+**Decision**: Use Google text-embedding-005 (768 dims) as default embedding model.
 **Rationale**: API key available, good quality, generous free tier. Provider interface allows swapping.
 **Trade-off**: Fewer dimensions than text-embedding-3-large (3072) but sufficient for eval dataset search. Can upgrade later.
 
