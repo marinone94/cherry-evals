@@ -28,15 +28,15 @@ def format_example_for_embedding(example: Example) -> str:
 def _get_provider(model: str) -> EmbeddingProvider:
     """Get embedding provider for a given model name."""
     # Google models
-    if model.startswith("text-embedding-"):
+    if model.startswith(("text-embedding-", "gemini-embedding-")):
         return GoogleEmbeddingProvider(model=model)
 
-    raise ValueError(f"Unknown embedding model: {model}. Available: text-embedding-005")
+    raise ValueError(f"Unknown embedding model: {model}. Available: gemini-embedding-001")
 
 
 def generate_embeddings_for_dataset(
     dataset_name: str,
-    model: str = "text-embedding-005",
+    model: str = "gemini-embedding-001",
     batch_size: int = 100,
     limit: int | None = None,
 ) -> dict[str, Any]:

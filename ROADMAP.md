@@ -32,7 +32,7 @@
 - [x] Parse and normalize to internal `Example` schema
 - [x] Extract metadata (subject, split, difficulty)
 - [x] Store examples in PostgreSQL
-- [~] Generate embeddings (migrating from OpenAI to Google text-embedding-005)
+- [~] Generate embeddings (migrating from OpenAI to Google gemini-embedding-001)
 - [x] Index embeddings in Qdrant
 - [x] Ingestion CLI command
 
@@ -71,7 +71,7 @@
 
 ### Semantic Search
 - [x] `POST /search/semantic` - Vector similarity search via Qdrant
-- [x] Embedding generation on-the-fly for queries (Google text-embedding-005)
+- [x] Embedding generation on-the-fly for queries (Google gemini-embedding-001)
 - [x] Top-k retrieval with score threshold
 
 ### Hybrid Search

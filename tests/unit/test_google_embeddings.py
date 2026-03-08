@@ -12,14 +12,14 @@ from cherry_evals.embeddings.google_embeddings import (
 
 
 def test_default_model_is_text_embedding_005():
-    """Default embedding model must be text-embedding-005."""
-    assert _DEFAULT_MODEL == "text-embedding-005"
+    """Default embedding model must be gemini-embedding-001."""
+    assert _DEFAULT_MODEL == "gemini-embedding-001"
 
 
 def test_model_dimensions_contains_005():
-    """text-embedding-005 must be registered with 768 dimensions."""
-    assert "text-embedding-005" in _MODEL_DIMENSIONS
-    assert _MODEL_DIMENSIONS["text-embedding-005"] == 768
+    """gemini-embedding-001 must be registered with 3072 dimensions."""
+    assert "gemini-embedding-001" in _MODEL_DIMENSIONS
+    assert _MODEL_DIMENSIONS["gemini-embedding-001"] == 3072
 
 
 def test_model_dimensions_does_not_contain_004():
@@ -55,7 +55,7 @@ def test_provider_dimensions_and_model_name(monkeypatch):
         MagicMock(google_api_key="key"),
     )
     with patch("cherry_evals.embeddings.google_embeddings.genai"):
-        provider = GoogleEmbeddingProvider(model="text-embedding-005")
+        provider = GoogleEmbeddingProvider(model="gemini-embedding-001")
 
-    assert provider.dimensions == 768
-    assert provider.model_name == "text-embedding-005"
+    assert provider.dimensions == 3072
+    assert provider.model_name == "gemini-embedding-001"

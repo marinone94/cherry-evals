@@ -6,10 +6,10 @@ from cherry_evals.config import settings
 
 # Google embedding model specs
 _MODEL_DIMENSIONS = {
-    "text-embedding-005": 768,
+    "gemini-embedding-001": 3072,
 }
 
-_DEFAULT_MODEL = "text-embedding-005"
+_DEFAULT_MODEL = "gemini-embedding-001"
 
 
 class GoogleEmbeddingProvider:

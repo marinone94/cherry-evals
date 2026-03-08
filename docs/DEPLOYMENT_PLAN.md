@@ -79,20 +79,20 @@ At **1,000 searches/day** (mix of keyword and agentic):
 - With free tier: probably **$0-2/month** for a while
 
 ### Embedding Costs
-- text-embedding-005 is free via Gemini API
+- gemini-embedding-001 is free via Gemini API
 - 100k examples × ~100 tokens each = 10M tokens one-time
 - Cost: **$0** (free tier) or **$1** on paid tier
 
 ### Storage Costs
 - PostgreSQL: 10 datasets × ~100k examples = ~50MB (trivial)
-- Qdrant: 100k vectors × 768 dims × 4 bytes = ~300MB
+- Qdrant: 100k vectors × 3072 dims × 4 bytes = ~300MB
 - Both well within free tiers for Phase 1
 
 ---
 
 ## Embedding Model
 
-Currently using **`text-embedding-005`** (migrated from discontinued `text-embedding-004`). Same 768 dimensions, drop-in replacement. Any existing Qdrant collections using `text-embedding-004` need to be regenerated.
+Currently using **`gemini-embedding-001`** (migrated from discontinued `text-embedding-004`). Same 3072 dimensions, drop-in replacement. Any existing Qdrant collections using `text-embedding-004` need to be regenerated.
 
 ---
 
@@ -183,7 +183,7 @@ Currently using **`text-embedding-005`** (migrated from discontinued `text-embed
 ## Deployment Steps (ordered)
 
 ### Step 1: Embedding model migration
-- [ ] Update to `text-embedding-005` or `gemini-embedding-001`
+- [ ] Update to `gemini-embedding-001` or `gemini-embedding-001`
 - [ ] Test embedding generation locally
 - [ ] Update Qdrant collection dimensions if changed
 

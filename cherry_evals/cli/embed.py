@@ -13,8 +13,8 @@ from cherry_evals.embeddings.generate import generate_embeddings_for_dataset
 @click.argument("dataset", type=str)
 @click.option(
     "--model",
-    default="text-embedding-005",
-    type=click.Choice(["text-embedding-005"], case_sensitive=False),
+    default="gemini-embedding-001",
+    type=click.Choice(["gemini-embedding-001"], case_sensitive=False),
     help="Embedding model to use",
 )
 @click.option(
