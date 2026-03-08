@@ -12,7 +12,7 @@ def get_qdrant_client() -> QdrantClient:
     Connects with API key when ``QDRANT_API_KEY`` is set (Qdrant Cloud),
     otherwise connects without authentication (local / self-hosted).
     """
-    kwargs: dict = {"url": settings.qdrant_url}
+    kwargs: dict = {"url": settings.qdrant_url, "timeout": 60}
     if settings.qdrant_api_key:
         kwargs["api_key"] = settings.qdrant_api_key
     return QdrantClient(**kwargs)

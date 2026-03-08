@@ -106,7 +106,10 @@ def generate_embeddings_for_dataset(
                 )
                 points.append(point)
 
-            upsert_vectors(qdrant, collection_name, points)
+            # Upsert in smaller sub-batches to avoid Qdrant Cloud timeouts
+            upsert_batch_size = 20
+            for j in range(0, len(points), upsert_batch_size):
+                upsert_vectors(qdrant, collection_name, points[j : j + upsert_batch_size])
             total_embeddings += len(batch)
 
             if (i // batch_size + 1) % 10 == 0 or i + batch_size >= total_examples:
