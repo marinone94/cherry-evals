@@ -218,3 +218,6 @@ frontend/dist/
 # Claude Code settings (user-specific)
 .claude/
 test.db
+
+# SM content
+docs/LAUNCH_CONTENT.md

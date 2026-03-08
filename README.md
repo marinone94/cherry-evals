@@ -20,7 +20,7 @@ Works for both humans (web UI, CLI) and AI agents (MCP server, REST API).
 
 ```bash
 # Clone and install
-git clone https://github.com/your-org/cherry-evals.git
+git clone https://github.com/marinone94/cherry-evals.git
 cd cherry-evals
 uv sync
 
@@ -46,8 +46,8 @@ uv run fastapi dev api/main.py
 |-----------|-----|--------|
 | REST API | Programmatic access | Available |
 | CLI | Local operations | Available |
-| MCP Server | AI agent integration | Planned |
-| Web UI | Visual browsing | Planned |
+| MCP Server | AI agent integration | Available |
+| Web UI | Visual browsing | Available |
 
 ## Project Structure
 
