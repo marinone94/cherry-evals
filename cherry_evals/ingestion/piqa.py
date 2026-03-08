@@ -29,6 +29,10 @@ class PIQAAdapter(DatasetAdapter):
         return None
 
     @property
+    def hf_revision(self) -> str:
+        return "refs/convert/parquet"
+
+    @property
     def license(self) -> str:
         return "AFL-3.0"
 

@@ -33,6 +33,11 @@ class DatasetAdapter(ABC):
         return None
 
     @property
+    def hf_revision(self) -> str | None:
+        """HuggingFace dataset revision/branch. Use 'refs/convert/parquet' for legacy datasets."""
+        return None
+
+    @property
     @abstractmethod
     def license(self) -> str:
         """Dataset license."""

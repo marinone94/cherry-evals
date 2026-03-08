@@ -29,10 +29,12 @@ def ingest_dataset(
     print(f"Downloading {adapter.name} dataset from HuggingFace...")
 
     # Load with or without a config name
+    load_kwargs: dict[str, Any] = {}
     if adapter.hf_config is not None:
-        hf_dataset = load_dataset(adapter.hf_dataset_id, adapter.hf_config)
-    else:
-        hf_dataset = load_dataset(adapter.hf_dataset_id)
+        load_kwargs["name"] = adapter.hf_config
+    if adapter.hf_revision is not None:
+        load_kwargs["revision"] = adapter.hf_revision
+    hf_dataset = load_dataset(adapter.hf_dataset_id, **load_kwargs)
 
     db = SessionLocal()
 
