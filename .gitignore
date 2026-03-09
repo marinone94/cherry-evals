@@ -219,5 +219,9 @@ frontend/dist/
 .claude/
 test.db
 
-# SM content
+# Internal strategy docs (keep local, not public)
 docs/LAUNCH_CONTENT.md
+docs/COLLECTIVE_INTELLIGENCE.md
+docs/VISION.md
+docs/DEPLOYMENT_PLAN.md
+docs/PITCH.md
