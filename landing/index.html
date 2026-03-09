@@ -99,7 +99,7 @@
             <polyline points="4 17 10 11 4 5"/>
             <line x1="12" y1="19" x2="20" y2="19"/>
           </svg>
-          Get Started
+          Try the API
         </a>
       </div>
 
@@ -303,9 +303,44 @@
       <header class="quickstart__header fade-in">
         <span class="section-label">Quick Start</span>
         <div class="divider"></div>
-        <h2 class="section-title">Up and running in minutes.</h2>
+        <h2 class="section-title">Try it right now.</h2>
         <p class="section-body" style="margin-bottom: 36px;">
-          Self-hosted, no account required. Requires
+          The cloud API is live with 10 datasets and 151K examples. No setup needed.
+        </p>
+      </header>
+
+      <div class="code-block fade-in delay-1">
+        <div class="code-block__header">
+          <div class="code-block__dots" aria-hidden="true">
+            <span class="code-block__dot code-block__dot--red"></span>
+            <span class="code-block__dot code-block__dot--yellow"></span>
+            <span class="code-block__dot code-block__dot--green"></span>
+          </div>
+          <span class="code-block__label">bash — try the cloud API</span>
+          <button class="code-block__copy" id="copy-code-cloud" aria-label="Copy code to clipboard">Copy</button>
+        </div>
+
+        <div class="code-block__body">
+          <pre id="quickstart-code-cloud"
+><span class="cmd"># Search for biology questions across all datasets</span>
+curl -s -X POST https://cherry-evals-api-480090132755.europe-north1.run.app/search \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"query": "photosynthesis", "limit": 5}'</span> | python3 -m json.tool
+
+<span class="cmd"># List all available datasets</span>
+curl -s https://cherry-evals-api-480090132755.europe-north1.run.app/datasets | python3 -m json.tool
+
+<span class="cmd"># Create a collection and start cherry-picking</span>
+curl -s -X POST https://cherry-evals-api-480090132755.europe-north1.run.app/collections \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"name": "my-bio-eval", "description": "Biology eval suite"}'</span></pre>
+        </div>
+      </div>
+
+      <header class="quickstart__header fade-in" style="margin-top: 64px;">
+        <h2 class="section-title" style="font-size: 1.5rem;">Or self-host it.</h2>
+        <p class="section-body" style="margin-bottom: 36px;">
+          Run your own instance with Docker Compose. Requires
           <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener noreferrer">uv</a>
           and
           <a href="https://docs.docker.com/compose/" target="_blank" rel="noopener noreferrer">Docker Compose</a>.
@@ -319,7 +354,7 @@
             <span class="code-block__dot code-block__dot--yellow"></span>
             <span class="code-block__dot code-block__dot--green"></span>
           </div>
-          <span class="code-block__label">bash</span>
+          <span class="code-block__label">bash — self-hosted</span>
           <button class="code-block__copy" id="copy-code" aria-label="Copy code to clipboard">Copy</button>
         </div>
 

@@ -45,27 +45,26 @@
     observer.observe(el);
   });
 
-  /* --- Copy button for code block ------------------------ */
+  /* --- Copy buttons for code blocks ---------------------- */
 
-  const copyBtn = document.getElementById("copy-code");
-  const codeEl = document.getElementById("quickstart-code");
+  function setupCopyButton(btnId, codeId) {
+    var btn = document.getElementById(btnId);
+    var code = document.getElementById(codeId);
+    if (!btn || !code) return;
 
-  if (copyBtn && codeEl) {
-    copyBtn.addEventListener("click", function () {
-      const text = codeEl.textContent;
-
+    btn.addEventListener("click", function () {
+      var text = code.textContent;
       navigator.clipboard.writeText(text).then(
         function () {
-          copyBtn.textContent = "Copied!";
-          copyBtn.classList.add("copied");
+          btn.textContent = "Copied!";
+          btn.classList.add("copied");
           setTimeout(function () {
-            copyBtn.textContent = "Copy";
-            copyBtn.classList.remove("copied");
+            btn.textContent = "Copy";
+            btn.classList.remove("copied");
           }, 2000);
         },
         function () {
-          // Fallback for older browsers
-          const area = document.createElement("textarea");
+          var area = document.createElement("textarea");
           area.value = text;
           area.style.position = "fixed";
           area.style.opacity = "0";
@@ -73,17 +72,19 @@
           area.select();
           document.execCommand("copy");
           document.body.removeChild(area);
-
-          copyBtn.textContent = "Copied!";
-          copyBtn.classList.add("copied");
+          btn.textContent = "Copied!";
+          btn.classList.add("copied");
           setTimeout(function () {
-            copyBtn.textContent = "Copy";
-            copyBtn.classList.remove("copied");
+            btn.textContent = "Copy";
+            btn.classList.remove("copied");
           }, 2000);
         }
       );
     });
   }
+
+  setupCopyButton("copy-code-cloud", "quickstart-code-cloud");
+  setupCopyButton("copy-code", "quickstart-code");
 
   /* --- Sticky nav shadow on scroll ----------------------- */
 

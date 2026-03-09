@@ -18,6 +18,22 @@ Works for both humans (web UI, CLI) and AI agents (MCP server, REST API).
 
 ## Quick Start
 
+### Use the Cloud API (no setup)
+
+The API is live at **https://cherry-evals-api-480090132755.europe-north1.run.app** with 10 datasets and 151K examples ready to search.
+
+```bash
+# Search for biology questions
+curl -X POST https://cherry-evals-api-480090132755.europe-north1.run.app/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "photosynthesis", "limit": 5}'
+
+# List all datasets
+curl https://cherry-evals-api-480090132755.europe-north1.run.app/datasets
+```
+
+### Self-hosted
+
 ```bash
 # Clone and install
 git clone https://github.com/marinone94/cherry-evals.git
