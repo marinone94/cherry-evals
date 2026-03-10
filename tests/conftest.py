@@ -85,6 +85,7 @@ def test_client(test_db_session, test_settings):
         patch("api.deps.settings", test_settings),
         patch("api.routes.export.settings", test_settings),
         patch("api.routes.collections.settings", test_settings),
+        patch("api.routes.agents.settings", test_settings),
         TestClient(app) as client,
     ):
         yield client

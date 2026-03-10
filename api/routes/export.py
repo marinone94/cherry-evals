@@ -7,12 +7,14 @@ from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from api.deps import get_current_user
 from api.models.export import ExportFormat, ExportRequest, LangfuseExportResponse
+from cherry_evals.config import settings
 from core.export.formats import to_csv, to_json, to_jsonl
 from core.export.langfuse_export import LangfuseExportError, export_to_langfuse
 from core.traces.events import record_event
 from db.postgres.base import get_db
-from db.postgres.models import Collection, CollectionExample, Dataset, Example
+from db.postgres.models import Collection, CollectionExample, Dataset, Example, User
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +62,7 @@ def export_collection(
     request: ExportRequest,
     db: Session = Depends(get_db),
     x_session_id: str | None = Header(default=None),
+    user: User | None = Depends(get_current_user),
 ):
     """Export a collection to the specified format.
 
@@ -69,6 +72,11 @@ def export_collection(
     collection = db.get(Collection, collection_id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
+
+    # Ownership check — prevent IDOR
+    if settings.auth_enabled and user is not None:
+        if collection.user_id != user.supabase_id:
+            raise HTTPException(status_code=404, detail="Collection not found")
 
     examples, dataset_names = _get_collection_examples(db, collection_id)
 

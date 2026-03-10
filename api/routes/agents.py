@@ -8,9 +8,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from api.deps import check_and_increment_llm_budget, get_current_user, require_paid
+from cherry_evals.config import settings
 from core.traces.events import record_event
 from db.postgres.base import get_db
-from db.postgres.models import Collection, CollectionExample, Dataset, Example
+from db.postgres.models import Collection, CollectionExample, Dataset, Example, User
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +107,11 @@ class CustomExportResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-@router.post("/discover", response_model=DiscoverResponse)
+@router.post(
+    "/discover",
+    response_model=DiscoverResponse,
+    dependencies=[Depends(require_paid), Depends(check_and_increment_llm_budget)],
+)
 def discover_dataset(request: DiscoverDatasetRequest):
     """Discover a HuggingFace dataset matching a description.
 
@@ -129,7 +135,11 @@ def discover_dataset(request: DiscoverDatasetRequest):
     )
 
 
-@router.post("/ingest", response_model=IngestResponse)
+@router.post(
+    "/ingest",
+    response_model=IngestResponse,
+    dependencies=[Depends(require_paid), Depends(check_and_increment_llm_budget)],
+)
 def ingest_dataset(
     request: IngestDatasetRequest,
     x_session_id: str | None = Header(default=None),
@@ -160,12 +170,16 @@ def ingest_dataset(
     )
 
 
-@router.post("/{collection_id}/export-custom")
+@router.post(
+    "/{collection_id}/export-custom",
+    dependencies=[Depends(require_paid), Depends(check_and_increment_llm_budget)],
+)
 def export_collection_custom(
     collection_id: int,
     request: CustomExportRequest,
     db: Session = Depends(get_db),
     x_session_id: str | None = Header(default=None),
+    user: User | None = Depends(get_current_user),
 ):
     """Export a collection to any format using LLM-generated conversion logic.
 
@@ -178,6 +192,11 @@ def export_collection_custom(
     collection = db.get(Collection, collection_id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
+
+    # Ownership check — prevent IDOR
+    if settings.auth_enabled and user is not None:
+        if collection.user_id != user.supabase_id:
+            raise HTTPException(status_code=404, detail="Collection not found")
 
     examples = (
         db.execute(

@@ -41,6 +41,7 @@ def unauthed_client(test_db_session):
         patch("api.deps.settings", _AUTH_ENABLED_SETTINGS),
         patch("api.routes.export.settings", _AUTH_ENABLED_SETTINGS),
         patch("api.routes.collections.settings", _AUTH_ENABLED_SETTINGS),
+        patch("api.routes.agents.settings", _AUTH_ENABLED_SETTINGS),
         TestClient(app) as client,
     ):
         yield client

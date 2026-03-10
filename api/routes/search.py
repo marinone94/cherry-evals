@@ -5,6 +5,7 @@ import logging
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
+from api.deps import check_and_increment_llm_budget, check_semantic_search_quota, require_paid
 from api.models.search import (
     FacetRequest,
     FacetResponse,
@@ -68,7 +69,11 @@ def search(
     )
 
 
-@router.post("/semantic", response_model=SearchResponse)
+@router.post(
+    "/semantic",
+    response_model=SearchResponse,
+    dependencies=[Depends(check_semantic_search_quota)],
+)
 def search_semantic(
     request: SemanticSearchRequest,
     x_session_id: str | None = Header(default=None),
@@ -164,7 +169,11 @@ def search_hybrid(
     )
 
 
-@router.post("/intelligent", response_model=IntelligentSearchResponse)
+@router.post(
+    "/intelligent",
+    response_model=IntelligentSearchResponse,
+    dependencies=[Depends(require_paid), Depends(check_and_increment_llm_budget)],
+)
 def search_intelligent(
     request: IntelligentSearchRequest,
     db: Session = Depends(get_db),
