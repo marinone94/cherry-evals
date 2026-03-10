@@ -30,7 +30,7 @@ class TestScanForLeaks:
         assert any(f["type"] == "infra:internal_host" for f in findings)
 
     def test_detects_stack_trace(self):
-        text = "Traceback (most recent call last):\n  File \"/app/main.py\", line 42"
+        text = 'Traceback (most recent call last):\n  File "/app/main.py", line 42'
         findings = scan_for_leaks(text)
         assert any(f["type"] == "infra:stack_trace" for f in findings)
 
@@ -165,7 +165,5 @@ class TestOutputScannerWiring:
     def test_sanitize_error_message_redacts_connection_string(self):
         from core.safety.output_scanner import sanitize_error_message
 
-        error_msg = sanitize_error_message(
-            ValueError("postgres://user:pass@db.internal:5432/app")
-        )
+        error_msg = sanitize_error_message(ValueError("postgres://user:pass@db.internal:5432/app"))
         assert error_msg == "An internal error occurred."

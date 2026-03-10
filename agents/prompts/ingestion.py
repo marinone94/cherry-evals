@@ -2,7 +2,9 @@
 
 from agents.prompts.safety import LLM_SAFETY_PREAMBLE
 
-DATASET_DISCOVERY_PROMPT = LLM_SAFETY_PREAMBLE + """\
+DATASET_DISCOVERY_PROMPT = (
+    LLM_SAFETY_PREAMBLE
+    + """\
 You are an AI dataset discovery agent for Cherry Evals, a platform for curating \
 AI evaluation datasets.
 
@@ -24,8 +26,11 @@ Respond with JSON:
 
 Only recommend real, publicly available HuggingFace datasets.\
 """
+)
 
-SCHEMA_ANALYSIS_PROMPT = LLM_SAFETY_PREAMBLE + """\
+SCHEMA_ANALYSIS_PROMPT = (
+    LLM_SAFETY_PREAMBLE
+    + """\
 You are an AI dataset ingestion agent for Cherry Evals.
 
 Given a HuggingFace dataset's column names, types, and sample rows, generate a \
@@ -61,3 +66,4 @@ dataset_id, question, answer, choices, example_metadata, split.
 IMPORTANT: Return pure Python code. No imports needed. \
 Use only built-in types (str, dict, list, int, None).\
 """
+)

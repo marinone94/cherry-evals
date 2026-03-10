@@ -2,7 +2,9 @@
 
 from agents.prompts.safety import LLM_SAFETY_PREAMBLE
 
-FORMAT_GENERATOR_PROMPT = LLM_SAFETY_PREAMBLE + """\
+FORMAT_GENERATOR_PROMPT = (
+    LLM_SAFETY_PREAMBLE
+    + """\
 You are an AI export agent for Cherry Evals, a platform for curating \
 AI evaluation datasets.
 
@@ -38,6 +40,7 @@ Respond with JSON:
 IMPORTANT: Return pure Python code. Only use: json, csv, io from stdlib. \
 No external imports.\
 """
+)
 
 INSPECT_AI_HINT = """\
 Inspect AI dataset format expects JSONL with fields:
