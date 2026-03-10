@@ -1,6 +1,6 @@
 """Pydantic models for search endpoints."""
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -14,7 +14,7 @@ class SearchRequest(BaseModel):
     task_type: str | None = Field(None, max_length=100, description="Filter by dataset task_type")
     limit: int = Field(20, ge=1, le=100, description="Max results to return")
     offset: int = Field(0, ge=0, description="Results offset for pagination")
-    sort_by: str = Field(
+    sort_by: Literal["relevance", "newest", "dataset"] = Field(
         "relevance",
         description="Sort order: 'relevance' (by id), 'newest' (created_at desc), 'dataset'",
     )
@@ -55,7 +55,10 @@ class SemanticSearchRequest(BaseModel):
     limit: int = Field(20, ge=1, le=100, description="Max results to return")
     score_threshold: float | None = Field(None, ge=0, le=1, description="Min similarity score")
     collection: str = Field(
-        "mmlu_embeddings", max_length=100, description="Qdrant collection to search"
+        "mmlu_embeddings",
+        max_length=100,
+        pattern=r"^[a-z0-9_]{1,64}$",
+        description="Qdrant collection to search",
     )
 
 
@@ -71,7 +74,10 @@ class HybridSearchRequest(BaseModel):
     keyword_weight: float = Field(0.4, ge=0, le=1, description="Weight for keyword results")
     semantic_weight: float = Field(0.6, ge=0, le=1, description="Weight for semantic results")
     collection: str = Field(
-        "mmlu_embeddings", max_length=100, description="Qdrant collection to search"
+        "mmlu_embeddings",
+        max_length=100,
+        pattern=r"^[a-z0-9_]{1,64}$",
+        description="Qdrant collection to search",
     )
 
 

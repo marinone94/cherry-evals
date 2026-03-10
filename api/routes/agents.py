@@ -40,7 +40,10 @@ class IngestDatasetRequest(BaseModel):
         ..., min_length=1, max_length=500, description="Description of what to ingest"
     )
     hf_dataset_id: str | None = Field(
-        None, max_length=200, description="Direct HuggingFace dataset ID"
+        None,
+        max_length=200,
+        pattern=r"^[\w\-./]+$",
+        description="Direct HuggingFace dataset ID",
     )
     hf_config: str | None = Field(
         None, max_length=200, description="HuggingFace config/subset name"
