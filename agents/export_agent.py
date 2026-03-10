@@ -107,17 +107,70 @@ def _call_gemini(prompt: str) -> str | None:
         return None
 
 
+_SAFE_BUILTINS = {
+    "len": len,
+    "range": range,
+    "str": str,
+    "int": int,
+    "float": float,
+    "list": list,
+    "dict": dict,
+    "tuple": tuple,
+    "set": set,
+    "bool": bool,
+    "None": None,
+    "True": True,
+    "False": False,
+    "enumerate": enumerate,
+    "zip": zip,
+    "sorted": sorted,
+    "reversed": reversed,
+    "isinstance": isinstance,
+    "min": min,
+    "max": max,
+    "sum": sum,
+    "abs": abs,
+    "round": round,
+    "map": map,
+    "filter": filter,
+    "any": any,
+    "all": all,
+    "ValueError": ValueError,
+    "KeyError": KeyError,
+    "TypeError": TypeError,
+    "IndexError": IndexError,
+    "StopIteration": StopIteration,
+}
+
+
+_ALLOWED_MODULES = {"json", "csv", "io", "re"}
+
+
+def _safe_import(name, *args, **kwargs):
+    """Restricted __import__ that only allows pre-approved modules."""
+    if name not in _ALLOWED_MODULES:
+        raise ImportError(f"Import of '{name}' is not allowed in generated code")
+    return (
+        __builtins__["__import__"](name, *args, **kwargs)
+        if isinstance(__builtins__, dict)
+        else __import__(name, *args, **kwargs)
+    )
+
+
 def _compile_convert_function(code: str) -> callable | None:
     """Safely compile a convert function from LLM-generated code.
 
-    Only allows json, csv, io from stdlib.
+    Only allows json, csv, io, re from stdlib. Uses restricted builtins —
+    no open(), exec(), eval(), or filesystem access. __import__ is sandboxed
+    to only permit pre-approved modules.
     """
     import csv
     import io
 
     try:
+        safe_builtins = {**_SAFE_BUILTINS, "__import__": _safe_import}
         safe_globals = {
-            "__builtins__": __builtins__,
+            "__builtins__": safe_builtins,
             "json": json,
             "csv": csv,
             "io": io,

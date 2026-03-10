@@ -93,14 +93,68 @@ def _call_gemini(prompt: str) -> str | None:
         return None
 
 
+_SAFE_BUILTINS = {
+    "len": len,
+    "range": range,
+    "str": str,
+    "int": int,
+    "float": float,
+    "list": list,
+    "dict": dict,
+    "tuple": tuple,
+    "set": set,
+    "bool": bool,
+    "None": None,
+    "True": True,
+    "False": False,
+    "enumerate": enumerate,
+    "zip": zip,
+    "sorted": sorted,
+    "reversed": reversed,
+    "isinstance": isinstance,
+    "min": min,
+    "max": max,
+    "sum": sum,
+    "abs": abs,
+    "round": round,
+    "map": map,
+    "filter": filter,
+    "any": any,
+    "all": all,
+    "ValueError": ValueError,
+    "KeyError": KeyError,
+    "TypeError": TypeError,
+    "IndexError": IndexError,
+    "StopIteration": StopIteration,
+}
+
+
+_ALLOWED_MODULES = {"json", "re"}
+
+
+def _safe_import(name, *args, **kwargs):
+    """Restricted __import__ that only allows pre-approved modules."""
+    if name not in _ALLOWED_MODULES:
+        raise ImportError(f"Import of '{name}' is not allowed in generated code")
+    return (
+        __builtins__["__import__"](name, *args, **kwargs)
+        if isinstance(__builtins__, dict)
+        else __import__(name, *args, **kwargs)
+    )
+
+
 def _compile_parse_function(code: str) -> callable | None:
     """Safely compile a parse_row function from LLM-generated code.
 
+    Uses a restricted builtins dict — no open(), exec(), eval(),
+    os, subprocess, or any other dangerous builtins. __import__ is sandboxed
+    to only permit pre-approved modules (json, re).
     Returns the callable or None if compilation fails.
     """
     try:
+        safe_builtins = {**_SAFE_BUILTINS, "__import__": _safe_import}
         namespace: dict = {}
-        exec(code, {"__builtins__": __builtins__}, namespace)  # noqa: S102
+        exec(code, {"__builtins__": safe_builtins}, namespace)  # noqa: S102
         fn = namespace.get("parse_row")
         if fn is None or not callable(fn):
             logger.warning("Generated code does not define a callable 'parse_row'")
