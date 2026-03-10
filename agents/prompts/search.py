@@ -1,9 +1,15 @@
 """System prompts for search agents.
 
 These are stored as Python constants so they are easy to find and modify.
+All prompts include the shared safety preamble to defend against prompt
+injection from dataset content and user queries.
 """
 
-QUERY_UNDERSTANDING_PROMPT = """\
+from agents.prompts.safety import LLM_SAFETY_PREAMBLE
+
+QUERY_UNDERSTANDING_PROMPT = (
+    LLM_SAFETY_PREAMBLE
+    + """\
 You are a search query parser for an AI evaluation dataset search engine.
 
 Available datasets and their typical content:
@@ -42,8 +48,11 @@ Respond ONLY with valid JSON, no explanation outside the JSON:
   "explanation": "<brief reason for these choices>"
 }
 """
+)
 
-RERANKING_PROMPT = """\
+RERANKING_PROMPT = (
+    LLM_SAFETY_PREAMBLE
+    + """\
 You are a search result re-ranker for an AI evaluation dataset search engine.
 
 Given a search query and a list of candidate results, re-rank them to maximize:
@@ -61,8 +70,11 @@ Respond ONLY with valid JSON:
 
 Include ALL provided result IDs in ranked_ids, ordered from most to least relevant.
 """
+)
 
-SEARCH_PLANNER_PROMPT = """\
+SEARCH_PLANNER_PROMPT = (
+    LLM_SAFETY_PREAMBLE
+    + """\
 You are a search planning agent for an AI evaluation dataset search engine.
 
 Available datasets:
@@ -92,8 +104,11 @@ Respond ONLY with valid JSON:
   "rationale": "<1-sentence reason for this choice>"
 }
 """
+)
 
-RESULT_EVALUATOR_PROMPT = """\
+RESULT_EVALUATOR_PROMPT = (
+    LLM_SAFETY_PREAMBLE
+    + """\
 You are a search quality evaluator for an AI evaluation dataset search engine.
 
 Given a user query and a list of search results, evaluate quality and decide whether to continue.
@@ -117,8 +132,11 @@ Rules:
 - If should_continue=false, set refined_query and suggested_tool to null
 - Be concise and decisive — avoid unnecessary iterations
 """
+)
 
-QUERY_REFINER_PROMPT = """\
+QUERY_REFINER_PROMPT = (
+    LLM_SAFETY_PREAMBLE
+    + """\
 You are a query refinement agent for an AI evaluation dataset search engine.
 
 Given the original query and evaluation feedback, generate an improved query.
@@ -135,3 +153,4 @@ Refinement strategies:
 - Use different phrasing to catch different matches
 - Add domain-specific terminology
 """
+)

@@ -26,6 +26,8 @@ from agents.prompts.export import (
     LANGSMITH_HINT,
 )
 from cherry_evals.config import settings
+from core.safety.content_wrapper import wrap_external_content
+from core.safety.output_scanner import sanitize_error_message
 
 logger = logging.getLogger(__name__)
 
@@ -110,14 +112,47 @@ def _call_gemini(prompt: str) -> str | None:
 def _compile_convert_function(code: str) -> callable | None:
     """Safely compile a convert function from LLM-generated code.
 
-    Only allows json, csv, io from stdlib.
+    Only allows json, csv, io from stdlib. Builtins are restricted to a safe
+    allowlist — no open(), exec(), eval(), __import__(), etc.
     """
     import csv
     import io
 
+    safe_builtins = {
+        "True": True,
+        "False": False,
+        "None": None,
+        "abs": abs,
+        "all": all,
+        "any": any,
+        "bool": bool,
+        "dict": dict,
+        "enumerate": enumerate,
+        "float": float,
+        "frozenset": frozenset,
+        "int": int,
+        "isinstance": isinstance,
+        "len": len,
+        "list": list,
+        "map": map,
+        "max": max,
+        "min": min,
+        "range": range,
+        "repr": repr,
+        "reversed": reversed,
+        "round": round,
+        "set": set,
+        "sorted": sorted,
+        "str": str,
+        "sum": sum,
+        "tuple": tuple,
+        "type": type,
+        "zip": zip,
+    }
+
     try:
         safe_globals = {
-            "__builtins__": __builtins__,
+            "__builtins__": safe_builtins,
             "json": json,
             "csv": csv,
             "io": io,
@@ -203,9 +238,8 @@ class ExportAgent:
                 hint = f"\n\nPlatform format reference:\n{platform_hint}"
                 break
 
-        prompt = (
-            f"{FORMAT_GENERATOR_PROMPT}{hint}\n\nTarget format description: {format_description}"
-        )
+        safe_desc = wrap_external_content(format_description, source="format_description")
+        prompt = f"{FORMAT_GENERATOR_PROMPT}{hint}\n\nTarget format description:\n{safe_desc}"
 
         response_text = _call_gemini(prompt)
         if not response_text:
@@ -313,7 +347,7 @@ class ExportAgent:
                 content_type=plan.content_type,
                 plan=plan,
                 num_examples=len(example_dicts),
-                errors=[f"Conversion failed: {exc}"],
+                errors=[f"Conversion failed: {sanitize_error_message(exc)}"],
             )
 
         return ExportResult(
@@ -381,5 +415,5 @@ class ExportAgent:
                 content_type=ct_map.get(fmt, "text/plain"),
                 plan=None,
                 num_examples=len(examples) if examples else 0,
-                errors=[f"Builtin export failed: {exc}"],
+                errors=[f"Builtin export failed: {sanitize_error_message(exc)}"],
             )
