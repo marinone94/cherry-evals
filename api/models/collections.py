@@ -10,14 +10,14 @@ class CollectionCreate(BaseModel):
     """Request model for creating a collection."""
 
     name: str = Field(..., min_length=1, max_length=255)
-    description: str | None = None
+    description: str | None = Field(None, max_length=2000)
 
 
 class CollectionUpdate(BaseModel):
     """Request model for updating a collection."""
 
     name: str | None = Field(None, min_length=1, max_length=255)
-    description: str | None = None
+    description: str | None = Field(None, max_length=2000)
 
 
 class CollectionResponse(BaseModel):
@@ -42,13 +42,13 @@ class CollectionListResponse(BaseModel):
 class AddExamplesRequest(BaseModel):
     """Request model for adding examples to a collection."""
 
-    example_ids: list[int] = Field(..., min_length=1)
+    example_ids: list[int] = Field(..., min_length=1, max_length=1000)
 
 
 class RemoveExamplesRequest(BaseModel):
     """Request model for bulk removing examples from a collection."""
 
-    example_ids: list[int] = Field(..., min_length=1)
+    example_ids: list[int] = Field(..., min_length=1, max_length=1000)
 
 
 class CollectionExampleResponse(BaseModel):

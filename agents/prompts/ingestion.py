@@ -1,6 +1,8 @@
 """Prompts for the ingestion agent — discovers and ingests arbitrary datasets."""
 
-DATASET_DISCOVERY_PROMPT = """\
+from agents.prompts.safety import LLM_SAFETY_PREAMBLE
+
+DATASET_DISCOVERY_PROMPT = LLM_SAFETY_PREAMBLE + """\
 You are an AI dataset discovery agent for Cherry Evals, a platform for curating \
 AI evaluation datasets.
 
@@ -23,7 +25,7 @@ Respond with JSON:
 Only recommend real, publicly available HuggingFace datasets.\
 """
 
-SCHEMA_ANALYSIS_PROMPT = """\
+SCHEMA_ANALYSIS_PROMPT = LLM_SAFETY_PREAMBLE + """\
 You are an AI dataset ingestion agent for Cherry Evals.
 
 Given a HuggingFace dataset's column names, types, and sample rows, generate a \

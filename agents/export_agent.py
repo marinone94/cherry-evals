@@ -26,6 +26,7 @@ from agents.prompts.export import (
     LANGSMITH_HINT,
 )
 from cherry_evals.config import settings
+from core.safety.content_wrapper import wrap_external_content
 
 logger = logging.getLogger(__name__)
 
@@ -203,9 +204,8 @@ class ExportAgent:
                 hint = f"\n\nPlatform format reference:\n{platform_hint}"
                 break
 
-        prompt = (
-            f"{FORMAT_GENERATOR_PROMPT}{hint}\n\nTarget format description: {format_description}"
-        )
+        safe_desc = wrap_external_content(format_description, source="format_description")
+        prompt = f"{FORMAT_GENERATOR_PROMPT}{hint}\n\nTarget format description:\n{safe_desc}"
 
         response_text = _call_gemini(prompt)
         if not response_text:

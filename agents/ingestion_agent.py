@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 
 from agents.prompts.ingestion import DATASET_DISCOVERY_PROMPT, SCHEMA_ANALYSIS_PROMPT
 from cherry_evals.config import settings
+from core.safety.content_wrapper import sanitize_prompt_literal, wrap_external_content
 
 logger = logging.getLogger(__name__)
 
@@ -238,7 +239,8 @@ class IngestionAgent:
                 "rationale": "Direct HuggingFace ID provided.",
             }
 
-        prompt = f"{DATASET_DISCOVERY_PROMPT}\n\nUser request: {description}"
+        safe_description = wrap_external_content(description, source="user_request")
+        prompt = f"{DATASET_DISCOVERY_PROMPT}\n\nUser request:\n{safe_description}"
         response_text = _call_gemini(prompt)
         if not response_text:
             return None
@@ -306,11 +308,15 @@ class IngestionAgent:
         Returns:
             Dict with parse_function code and metadata, or None on failure.
         """
-        user_msg = (
-            f"Dataset: {schema_info['hf_dataset_id']}\n"
-            f"Columns: {json.dumps(schema_info['column_info'], indent=2)}\n"
-            f"Sample rows:\n{json.dumps(schema_info['sample_rows'][:3], indent=2, default=str)}"
+        dataset_id = sanitize_prompt_literal(schema_info["hf_dataset_id"])
+        columns_block = wrap_external_content(
+            json.dumps(schema_info["column_info"], indent=2), source="dataset_columns"
         )
+        rows_block = wrap_external_content(
+            json.dumps(schema_info["sample_rows"][:3], indent=2, default=str),
+            source="dataset_rows",
+        )
+        user_msg = f"Dataset: {dataset_id}\nColumns:\n{columns_block}\nSample rows:\n{rows_block}"
         prompt = f"{SCHEMA_ANALYSIS_PROMPT}\n\n{user_msg}"
 
         response_text = _call_gemini(prompt)

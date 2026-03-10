@@ -25,23 +25,39 @@ router = APIRouter(prefix="/agents", tags=["agents"])
 class DiscoverDatasetRequest(BaseModel):
     """Request to discover a dataset."""
 
-    description: str = Field(..., description="What kind of dataset to find, or a HuggingFace ID")
+    description: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="What kind of dataset to find, or a HuggingFace ID",
+    )
 
 
 class IngestDatasetRequest(BaseModel):
     """Request to ingest an arbitrary dataset."""
 
-    description: str = Field(..., description="Description of what to ingest")
-    hf_dataset_id: str | None = Field(None, description="Direct HuggingFace dataset ID")
-    hf_config: str | None = Field(None, description="HuggingFace config/subset name")
-    max_examples: int | None = Field(None, description="Limit on examples to ingest")
+    description: str = Field(
+        ..., min_length=1, max_length=500, description="Description of what to ingest"
+    )
+    hf_dataset_id: str | None = Field(
+        None, max_length=200, description="Direct HuggingFace dataset ID"
+    )
+    hf_config: str | None = Field(
+        None, max_length=200, description="HuggingFace config/subset name"
+    )
+    max_examples: int | None = Field(
+        None, ge=1, le=100_000, description="Limit on examples to ingest"
+    )
 
 
 class CustomExportRequest(BaseModel):
     """Request to export a collection in a custom format."""
 
     format_description: str = Field(
-        ..., description="Target format description (e.g. 'Inspect AI', 'LangSmith', or custom)"
+        ...,
+        min_length=1,
+        max_length=1000,
+        description="Target format description (e.g. 'Inspect AI', 'LangSmith', or custom)",
     )
 
 

@@ -1,6 +1,8 @@
 """Prompts for the export agent — generates custom export formats on-the-fly."""
 
-FORMAT_GENERATOR_PROMPT = """\
+from agents.prompts.safety import LLM_SAFETY_PREAMBLE
+
+FORMAT_GENERATOR_PROMPT = LLM_SAFETY_PREAMBLE + """\
 You are an AI export agent for Cherry Evals, a platform for curating \
 AI evaluation datasets.
 

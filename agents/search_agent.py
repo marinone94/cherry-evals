@@ -28,6 +28,7 @@ from agents.prompts.search import (
     SEARCH_PLANNER_PROMPT,
 )
 from cherry_evals.config import settings
+from core.safety.content_wrapper import sanitize_prompt_literal, wrap_external_content
 from core.search.hybrid import hybrid_search
 from core.search.keyword import keyword_search
 from core.search.semantic import semantic_search
@@ -337,8 +338,8 @@ class SearchAgent:
 
     def _plan_search(self, query: str) -> dict:
         """Call Gemini to plan the initial search strategy."""
-        user_message = f"Query: {query}"
-        prompt = f"{SEARCH_PLANNER_PROMPT}\n\n{user_message}"
+        safe_query = wrap_external_content(query, source="user_query")
+        prompt = f"{SEARCH_PLANNER_PROMPT}\n\nQuery:\n{safe_query}"
 
         response_text = _call_gemini(prompt)
         if not response_text:
@@ -365,16 +366,20 @@ class SearchAgent:
         summaries = [
             {
                 "id": r["id"],
-                "question": (r.get("question") or "")[:snippet_len],
+                "question": sanitize_prompt_literal((r.get("question") or "")[:snippet_len]),
                 "dataset": r.get("dataset_name", ""),
-                "subject": (r.get("example_metadata") or {}).get("subject", ""),
+                "subject": sanitize_prompt_literal(
+                    (r.get("example_metadata") or {}).get("subject", "")
+                ),
             }
             for r in results[:40]
         ]
 
-        user_message = f"Query: {original_query}\n\nResults ({len(results)} total):\n" + json.dumps(
-            summaries, indent=2
+        safe_query = wrap_external_content(original_query, source="user_query")
+        results_block = wrap_external_content(
+            json.dumps(summaries, indent=2), source="search_results"
         )
+        user_message = f"Query:\n{safe_query}\n\nResults ({len(results)} total):\n{results_block}"
         prompt = f"{RESULT_EVALUATOR_PROMPT}\n\n{user_message}"
 
         response_text = _call_gemini(prompt)
