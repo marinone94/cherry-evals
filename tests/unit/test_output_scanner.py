@@ -82,3 +82,90 @@ class TestSanitizeErrorMessage:
         error = ValueError("bad value")
         result = sanitize_error_message(error)
         assert "bad value" in result
+
+
+class TestRestrictedBuiltins:
+    """Verify that LLM-generated code exec uses restricted builtins."""
+
+    def test_export_compile_blocks_open(self):
+        from agents.export_agent import _compile_convert_function
+
+        code = "def convert(examples):\n    return open('/etc/passwd').read()"
+        fn = _compile_convert_function(code)
+        # Either compilation fails (returns None) or execution raises
+        if fn is not None:
+            import pytest
+
+            with pytest.raises((NameError, TypeError)):
+                fn([])
+
+    def test_export_compile_blocks_import(self):
+        from agents.export_agent import _compile_convert_function
+
+        code = "import os\ndef convert(examples):\n    return os.getcwd()"
+        fn = _compile_convert_function(code)
+        assert fn is None  # import not available, should fail to compile
+
+    def test_export_compile_blocks_eval(self):
+        from agents.export_agent import _compile_convert_function
+
+        code = "def convert(examples):\n    return eval('1+1')"
+        fn = _compile_convert_function(code)
+        if fn is not None:
+            import pytest
+
+            with pytest.raises((NameError, TypeError)):
+                fn([])
+
+    def test_export_compile_allows_safe_code(self):
+        from agents.export_agent import _compile_convert_function
+
+        # json is pre-injected via safe_globals, not imported
+        code = (
+            "def convert(examples):\n"
+            "    return json.dumps([{'q': e.get('question', '')} for e in examples])"
+        )
+        fn = _compile_convert_function(code)
+        assert fn is not None
+        result = fn([{"question": "What is 2+2?"}])
+        assert "What is 2+2?" in result
+
+    def test_ingestion_compile_blocks_open(self):
+        from agents.ingestion_agent import _compile_parse_function
+
+        code = "def parse_row(row, dataset_id, split):\n    return open('/etc/passwd').read()"
+        fn = _compile_parse_function(code)
+        if fn is not None:
+            import pytest
+
+            with pytest.raises((NameError, TypeError)):
+                fn({}, 1, "train")
+
+    def test_ingestion_compile_blocks_import(self):
+        from agents.ingestion_agent import _compile_parse_function
+
+        code = "import os\ndef parse_row(row, dataset_id, split):\n    return {}"
+        fn = _compile_parse_function(code)
+        assert fn is None
+
+
+class TestOutputScannerWiring:
+    """Verify output scanner is wired into agent error paths."""
+
+    def test_export_agent_imports_sanitize_error_message(self):
+        import agents.export_agent as mod
+
+        assert hasattr(mod, "sanitize_error_message")
+
+    def test_ingestion_agent_imports_sanitize_error_message(self):
+        import agents.ingestion_agent as mod
+
+        assert hasattr(mod, "sanitize_error_message")
+
+    def test_sanitize_error_message_redacts_connection_string(self):
+        from core.safety.output_scanner import sanitize_error_message
+
+        error_msg = sanitize_error_message(
+            ValueError("postgres://user:pass@db.internal:5432/app")
+        )
+        assert error_msg == "An internal error occurred."

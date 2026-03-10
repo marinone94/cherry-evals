@@ -27,12 +27,12 @@ from unittest.mock import MagicMock, patch
 
 
 def _sample_convert_code() -> str:
-    """Minimal valid convert(examples) -> str function."""
-    return (
-        "def convert(examples):\n"
-        "    import json as _json\n"
-        "    return _json.dumps(examples, indent=2)\n"
-    )
+    """Minimal valid convert(examples) -> str function.
+
+    Note: json is pre-injected via safe_globals in _compile_convert_function,
+    so we reference it directly rather than importing.
+    """
+    return "def convert(examples):\n    return json.dumps(examples, indent=2)\n"
 
 
 def _sample_convert_response(
@@ -559,11 +559,7 @@ class TestExportCustomFormat:
         def capturing_convert(prompt):
             return json.dumps(
                 {
-                    "convert_function": (
-                        "def convert(examples):\n"
-                        "    import json as _j\n"
-                        "    return _j.dumps(examples)\n"
-                    ),
+                    "convert_function": "def convert(examples):\n    return json.dumps(examples)\n",
                     "file_extension": ".json",
                     "content_type": "application/json",
                     "explanation": "",

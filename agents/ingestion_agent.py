@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from agents.prompts.ingestion import DATASET_DISCOVERY_PROMPT, SCHEMA_ANALYSIS_PROMPT
 from cherry_evals.config import settings
 from core.safety.content_wrapper import sanitize_prompt_literal, wrap_external_content
+from core.safety.output_scanner import sanitize_error_message
 
 logger = logging.getLogger(__name__)
 
@@ -97,11 +98,44 @@ def _call_gemini(prompt: str) -> str | None:
 def _compile_parse_function(code: str) -> callable | None:
     """Safely compile a parse_row function from LLM-generated code.
 
-    Returns the callable or None if compilation fails.
+    Builtins are restricted to a safe allowlist — no open(), exec(), eval(),
+    __import__(), etc. Returns the callable or None if compilation fails.
     """
+    safe_builtins = {
+        "True": True,
+        "False": False,
+        "None": None,
+        "abs": abs,
+        "all": all,
+        "any": any,
+        "bool": bool,
+        "dict": dict,
+        "enumerate": enumerate,
+        "float": float,
+        "frozenset": frozenset,
+        "int": int,
+        "isinstance": isinstance,
+        "len": len,
+        "list": list,
+        "map": map,
+        "max": max,
+        "min": min,
+        "range": range,
+        "repr": repr,
+        "reversed": reversed,
+        "round": round,
+        "set": set,
+        "sorted": sorted,
+        "str": str,
+        "sum": sum,
+        "tuple": tuple,
+        "type": type,
+        "zip": zip,
+    }
+
     try:
         namespace: dict = {}
-        exec(code, {"__builtins__": __builtins__}, namespace)  # noqa: S102
+        exec(code, {"__builtins__": safe_builtins}, namespace)  # noqa: S102
         fn = namespace.get("parse_row")
         if fn is None or not callable(fn):
             logger.warning("Generated code does not define a callable 'parse_row'")
@@ -464,7 +498,7 @@ class IngestionAgent:
                 total_examples=0,
                 splits={},
                 plan=plan,
-                errors=[f"Ingestion execution failed: {exc}"],
+                errors=[f"Ingestion execution failed: {sanitize_error_message(exc)}"],
             )
 
         # Generate adapter class code for optional saving

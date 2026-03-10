@@ -29,8 +29,8 @@ _INJECTION_PATTERNS: list[re.Pattern] = [
     re.compile(r"\[/?SYSTEM\]", re.IGNORECASE),
     re.compile(r"\[/?INST\]", re.IGNORECASE),
     re.compile(r"ignore (?:all )?previous instructions", re.IGNORECASE),
-    re.compile(r"you are now", re.IGNORECASE),
-    re.compile(r"developer mode", re.IGNORECASE),
+    re.compile(r"you are now (?:a|an|my|the) ", re.IGNORECASE),
+    re.compile(r"(?:enable|activate|enter) developer mode", re.IGNORECASE),
     re.compile(r"disregard (?:all )?(?:prior|above) (?:instructions|rules)", re.IGNORECASE),
     re.compile(r"new (?:system )?instructions?:", re.IGNORECASE),
     re.compile(r"override (?:safety|security|instructions)", re.IGNORECASE),
@@ -81,7 +81,9 @@ def wrap_external_content(content: str, source: str = "user_input") -> str:
     if len(content) > MAX_CONTENT_CHARS:
         content = content[:MAX_CONTENT_CHARS] + "\n[TRUNCATED]"
 
-    start = _BOUNDARY_START.format(source=source)
+    # Sanitize source label to prevent format string issues
+    safe_source = re.sub(r"[^a-zA-Z0-9_\-]", "_", source)
+    start = _BOUNDARY_START.format(source=safe_source)
     return f"{start}\n{content}\n{_BOUNDARY_END}"
 
 
