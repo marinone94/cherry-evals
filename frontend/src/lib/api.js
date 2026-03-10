@@ -1,8 +1,24 @@
-const BASE = '/api';
+import { supabase } from './supabase';
+
+// In production, VITE_API_BASE_URL points to Cloud Run directly.
+// In dev, Vite proxies /api to localhost:8000.
+const BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 async function request(path, options = {}) {
+  const authHeaders = {};
+  if (supabase) {
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.access_token) {
+      authHeaders['Authorization'] = `Bearer ${data.session.access_token}`;
+    }
+  }
+
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+      ...options.headers,
+    },
     ...options,
   });
   if (!res.ok) {
@@ -88,3 +104,16 @@ export const exportCollection = (id, format) =>
     method: 'POST',
     body: JSON.stringify({ format }),
   });
+
+// Account
+export const getAccount = () => request('/account/me');
+
+// API Keys
+export const listApiKeys = () => request('/api-keys');
+export const createApiKey = (name) =>
+  request('/api-keys', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+export const revokeApiKey = (id) =>
+  request(`/api-keys/${id}`, { method: 'DELETE' });

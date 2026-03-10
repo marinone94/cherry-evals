@@ -52,11 +52,15 @@ cherry-evals/
 │   └── ARCHITECTURE.md     # Technical architecture and ADRs
 │
 ├── api/                    # FastAPI REST API layer
-│   ├── main.py             # App factory and router registration
+│   ├── main.py             # App factory, CORS, router registration
+│   ├── deps.py             # Auth, rate limits, quota enforcement
 │   ├── routes/             # Endpoint definitions
-│   │   └── analytics.py    # Analytics endpoints
-│   ├── models/             # Pydantic request/response schemas
-│   └── deps.py             # Dependency injection
+│   │   ├── account.py      # User profile + usage stats
+│   │   ├── analytics.py    # Analytics endpoints
+│   │   ├── api_keys.py     # API key CRUD
+│   │   ├── billing.py      # Polar.sh webhook
+│   │   └── ...             # collections, search, export, agents, etc.
+│   └── models/             # Pydantic request/response schemas
 │
 ├── cherry_evals/           # Core application package
 │   ├── config.py           # Pydantic settings
@@ -423,6 +427,21 @@ QDRANT_API_KEY=  # optional — set for Qdrant Cloud, leave empty for local
 LANGFUSE_PUBLIC_KEY=your-public-key
 LANGFUSE_SECRET_KEY=your-secret-key
 LANGFUSE_BASE_URL=https://cloud.langfuse.com
+
+# Auth (Supabase)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_JWT_SECRET=your-jwt-secret
+
+# Billing (Polar.sh)
+POLAR_WEBHOOK_SECRET=your-polar-webhook-secret
+POLAR_PRO_PRODUCT_ID=your-polar-pro-product-id
+POLAR_ULTRA_PRODUCT_ID=your-polar-ultra-product-id
+
+# Auth toggle (default True — set False for local dev)
+AUTH_ENABLED=True
+
+# CORS origins (comma-separated)
+CORS_ORIGINS=https://app.cherryevals.com,http://localhost:5173
 
 # Optional
 CHERRY_DATA_DIR=./data
