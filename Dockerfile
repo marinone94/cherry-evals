@@ -32,14 +32,20 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends libpq5 curl && \
     rm -rf /var/lib/apt/lists/*
 
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
+
 # Copy the virtual environment from builder
-COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
 
 # Copy application code
-COPY --from=builder /app /app
+COPY --from=builder --chown=appuser:appuser /app /app
 
 # Put venv on PATH
 ENV PATH="/app/.venv/bin:$PATH"
+
+# Run as non-root
+USER appuser
 
 # Don't buffer Python output (important for Docker logging)
 ENV PYTHONUNBUFFERED=1
