@@ -1,6 +1,7 @@
 """Agent-powered API endpoints — LLM-driven ingestion, export, and discovery."""
 
 import logging
+import re
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import Response
@@ -8,9 +9,15 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from api.deps import (
+    check_and_increment_llm_budget,
+    check_collection_ownership,
+    get_current_user,
+    require_paid,
+)
 from core.traces.events import record_event
 from db.postgres.base import get_db
-from db.postgres.models import Collection, CollectionExample, Dataset, Example
+from db.postgres.models import Collection, CollectionExample, Dataset, Example, User
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +112,11 @@ class CustomExportResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-@router.post("/discover", response_model=DiscoverResponse)
+@router.post(
+    "/discover",
+    response_model=DiscoverResponse,
+    dependencies=[Depends(require_paid), Depends(check_and_increment_llm_budget)],
+)
 def discover_dataset(request: DiscoverDatasetRequest):
     """Discover a HuggingFace dataset matching a description.
 
@@ -129,7 +140,11 @@ def discover_dataset(request: DiscoverDatasetRequest):
     )
 
 
-@router.post("/ingest", response_model=IngestResponse)
+@router.post(
+    "/ingest",
+    response_model=IngestResponse,
+    dependencies=[Depends(require_paid), Depends(check_and_increment_llm_budget)],
+)
 def ingest_dataset(
     request: IngestDatasetRequest,
     x_session_id: str | None = Header(default=None),
@@ -160,12 +175,16 @@ def ingest_dataset(
     )
 
 
-@router.post("/{collection_id}/export-custom")
+@router.post(
+    "/{collection_id}/export-custom",
+    dependencies=[Depends(require_paid), Depends(check_and_increment_llm_budget)],
+)
 def export_collection_custom(
     collection_id: int,
     request: CustomExportRequest,
     db: Session = Depends(get_db),
     x_session_id: str | None = Header(default=None),
+    user: User | None = Depends(get_current_user),
 ):
     """Export a collection to any format using LLM-generated conversion logic.
 
@@ -178,6 +197,8 @@ def export_collection_custom(
     collection = db.get(Collection, collection_id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
+
+    check_collection_ownership(collection, user)
 
     examples = (
         db.execute(
@@ -222,7 +243,8 @@ def export_collection_custom(
         )
 
     # Return as downloadable file
-    filename = f"{collection.name.replace(' ', '_').lower()}{result.file_extension}"
+    safe_name = re.sub(r"[^a-zA-Z0-9_\-]", "_", collection.name).lower()
+    filename = f"{safe_name}{result.file_extension}"
     return Response(
         content=result.content,
         media_type=result.content_type,

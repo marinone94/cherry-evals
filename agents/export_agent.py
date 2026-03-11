@@ -117,6 +117,7 @@ def _compile_convert_function(code: str) -> callable | None:
     """
     import csv
     import io
+    import re
 
     safe_builtins = {
         "True": True,
@@ -156,6 +157,7 @@ def _compile_convert_function(code: str) -> callable | None:
             "json": json,
             "csv": csv,
             "io": io,
+            "re": re,
         }
         namespace: dict = {}
         exec(code, safe_globals, namespace)  # noqa: S102

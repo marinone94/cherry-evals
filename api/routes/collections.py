@@ -6,6 +6,12 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from api.deps import (
+    check_collection_example_limit,
+    check_collection_limit,
+    check_collection_ownership,
+    get_current_user,
+)
 from api.models.collections import (
     AddExamplesRequest,
     CollectionCreate,
@@ -16,9 +22,10 @@ from api.models.collections import (
     CollectionUpdate,
     RemoveExamplesRequest,
 )
+from cherry_evals.config import settings
 from core.traces.events import record_event
 from db.postgres.base import get_db
-from db.postgres.models import Collection, CollectionExample, Example
+from db.postgres.models import Collection, CollectionExample, Example, User
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +51,23 @@ def _collection_to_response(db: Session, collection: Collection) -> CollectionRe
     )
 
 
-@router.post("", response_model=CollectionResponse, status_code=201)
-def create_collection(request: CollectionCreate, db: Session = Depends(get_db)):
+@router.post(
+    "",
+    response_model=CollectionResponse,
+    status_code=201,
+    dependencies=[Depends(check_collection_limit)],
+)
+def create_collection(
+    request: CollectionCreate,
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user),
+):
     """Create a new collection."""
-    collection = Collection(name=request.name, description=request.description)
+    collection = Collection(
+        name=request.name,
+        description=request.description,
+        user_id=user.supabase_id if user else None,
+    )
     db.add(collection)
     db.commit()
     db.refresh(collection)
@@ -55,11 +75,15 @@ def create_collection(request: CollectionCreate, db: Session = Depends(get_db)):
 
 
 @router.get("", response_model=CollectionListResponse)
-def list_collections(db: Session = Depends(get_db)):
-    """List all collections."""
-    collections = (
-        db.execute(select(Collection).order_by(Collection.created_at.desc())).scalars().all()
-    )
+def list_collections(
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user),
+):
+    """List collections owned by the current user."""
+    query = select(Collection).order_by(Collection.created_at.desc())
+    if settings.auth_enabled and user is not None:
+        query = query.where(Collection.user_id == user.supabase_id)
+    collections = db.execute(query).scalars().all()
 
     return CollectionListResponse(
         collections=[_collection_to_response(db, c) for c in collections],
@@ -68,20 +92,31 @@ def list_collections(db: Session = Depends(get_db)):
 
 
 @router.get("/{collection_id}", response_model=CollectionResponse)
-def get_collection(collection_id: int, db: Session = Depends(get_db)):
+def get_collection(
+    collection_id: int,
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user),
+):
     """Get a single collection by ID."""
     collection = db.get(Collection, collection_id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
+    check_collection_ownership(collection, user)
     return _collection_to_response(db, collection)
 
 
 @router.put("/{collection_id}", response_model=CollectionResponse)
-def update_collection(collection_id: int, request: CollectionUpdate, db: Session = Depends(get_db)):
+def update_collection(
+    collection_id: int,
+    request: CollectionUpdate,
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user),
+):
     """Update collection metadata."""
     collection = db.get(Collection, collection_id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
+    check_collection_ownership(collection, user)
 
     if request.name is not None:
         collection.name = request.name
@@ -94,22 +129,32 @@ def update_collection(collection_id: int, request: CollectionUpdate, db: Session
 
 
 @router.delete("/{collection_id}", status_code=204)
-def delete_collection(collection_id: int, db: Session = Depends(get_db)):
+def delete_collection(
+    collection_id: int,
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user),
+):
     """Delete a collection and all its example associations."""
     collection = db.get(Collection, collection_id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
+    check_collection_ownership(collection, user)
 
     db.delete(collection)
     db.commit()
 
 
 @router.get("/{collection_id}/examples", response_model=CollectionExamplesListResponse)
-def list_collection_examples(collection_id: int, db: Session = Depends(get_db)):
+def list_collection_examples(
+    collection_id: int,
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user),
+):
     """List all examples in a collection."""
     collection = db.get(Collection, collection_id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
+    check_collection_ownership(collection, user)
 
     rows = db.execute(
         select(Example, CollectionExample.added_at)
@@ -145,11 +190,14 @@ def add_examples(
     request: AddExamplesRequest,
     db: Session = Depends(get_db),
     x_session_id: str | None = Header(default=None),
+    user: User | None = Depends(get_current_user),
+    _limit: None = Depends(check_collection_example_limit),
 ):
     """Add examples to a collection by ID. Skips duplicates."""
     collection = db.get(Collection, collection_id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
+    check_collection_ownership(collection, user)
 
     # Check which examples already exist in collection
     existing = set(
@@ -198,8 +246,15 @@ def remove_example(
     example_id: int,
     db: Session = Depends(get_db),
     x_session_id: str | None = Header(default=None),
+    user: User | None = Depends(get_current_user),
 ):
     """Remove a single example from a collection."""
+    # Ownership check — prevent IDOR
+    collection = db.get(Collection, collection_id)
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    check_collection_ownership(collection, user)
+
     ce = db.execute(
         select(CollectionExample).where(
             CollectionExample.collection_id == collection_id,
@@ -228,12 +283,16 @@ def remove_example(
 
 @router.post("/{collection_id}/examples/bulk-remove", status_code=200)
 def bulk_remove_examples(
-    collection_id: int, request: RemoveExamplesRequest, db: Session = Depends(get_db)
+    collection_id: int,
+    request: RemoveExamplesRequest,
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user),
 ):
     """Remove multiple examples from a collection."""
     collection = db.get(Collection, collection_id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
+    check_collection_ownership(collection, user)
 
     ces = (
         db.execute(

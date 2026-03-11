@@ -5,6 +5,12 @@ import logging
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
+from api.deps import (
+    check_and_increment_llm_budget,
+    check_search_rate_limit,
+    check_semantic_search_quota,
+    require_paid,
+)
 from api.models.search import (
     FacetRequest,
     FacetResponse,
@@ -26,7 +32,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/search", tags=["search"])
 
 
-@router.post("", response_model=SearchResponse)
+@router.post(
+    "",
+    response_model=SearchResponse,
+    dependencies=[Depends(check_search_rate_limit)],
+)
 def search(
     request: SearchRequest,
     db: Session = Depends(get_db),
@@ -68,7 +78,11 @@ def search(
     )
 
 
-@router.post("/semantic", response_model=SearchResponse)
+@router.post(
+    "/semantic",
+    response_model=SearchResponse,
+    dependencies=[Depends(check_semantic_search_quota)],
+)
 def search_semantic(
     request: SemanticSearchRequest,
     x_session_id: str | None = Header(default=None),
@@ -89,10 +103,10 @@ def search_semantic(
             subject=request.subject,
         )
     except Exception as e:
-        logger.warning(f"Semantic search failed: {e}")
+        logger.warning("Semantic search failed: %s", e)
         raise HTTPException(
             status_code=503,
-            detail=f"Semantic search unavailable: {e}",
+            detail="Semantic search is temporarily unavailable.",
         )
 
     return SearchResponse(
@@ -132,7 +146,7 @@ def search_hybrid(
         )
     except Exception as e:
         # Fall back to keyword search if semantic/hybrid fails
-        logger.warning(f"Hybrid search failed, falling back to keyword: {e}")
+        logger.warning("Hybrid search failed, falling back to keyword: %s", e)
         kw_results, total = keyword_search(
             db=db,
             query=request.query,
@@ -164,7 +178,11 @@ def search_hybrid(
     )
 
 
-@router.post("/intelligent", response_model=IntelligentSearchResponse)
+@router.post(
+    "/intelligent",
+    response_model=IntelligentSearchResponse,
+    dependencies=[Depends(require_paid), Depends(check_and_increment_llm_budget)],
+)
 def search_intelligent(
     request: IntelligentSearchRequest,
     db: Session = Depends(get_db),
