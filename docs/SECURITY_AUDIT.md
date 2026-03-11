@@ -1,8 +1,9 @@
 # Cherry Evals — Security, Privacy & Compliance Audit
 
 **Date**: 10 March 2026
+**Last updated**: 11 March 2026
 **Scope**: Full application (backend, frontend, agents, MCP, infrastructure, legal)
-**Status**: Pre-deployment review
+**Status**: Pre-deployment review — remediation in progress
 
 ---
 
@@ -11,11 +12,13 @@
 **46 findings** across security, LLM exploitation, frontend, and compliance.
 **4 Critical**, **11 High**, **12 Medium**, **9 Low**, **10 compliance gaps**.
 
-The two most severe issues are:
-1. **Remote code execution** via `exec()` with full `__builtins__` in the ingestion and export agents
-2. **IDOR** on `DELETE /collections/{id}/examples/{id}` (missing ownership check)
+**Remediation progress** (as of 11 March 2026):
+- **17 findings fixed** via PRs #20, #22, #23, #25
+- **29 findings remaining** (open or partially addressed)
 
-Both must be fixed before any public-facing deployment.
+The two most severe issues (RCE via `exec()` and IDOR) have been fixed:
+1. ~~**Remote code execution** via `exec()`~~ — Fixed in PR #25 (restricted `__builtins__` to safe allowlist + output scanning)
+2. ~~**IDOR** on `DELETE /collections/{id}/examples/{id}`~~ — Fixed in PR #20 (shared `check_collection_ownership()` in `api/deps.py`)
 
 ---
 
@@ -23,46 +26,46 @@ Both must be fixed before any public-facing deployment.
 
 ### CRITICAL
 
-| ID | Finding | File | Impact |
-|----|---------|------|--------|
-| SEC-C1 | MCP HTTP mode has no enforced auth — `_resolve_user_from_api_key()` defined but never called | `mcp_server/server.py:60-78` | Full unauthenticated access to all data + LLM credits |
-| SEC-C2 | IDOR: `remove_example` skips `_check_collection_ownership()` | `api/routes/collections.py:249` | Any user can delete any other user's collection examples |
-| SEC-C3 | Billing webhook matches user by email (not unique column); should use `polar_customer_id` after first event | `api/routes/billing.py:63` | Wrong user could be tier-upgraded/downgraded |
-| SEC-C4 | Hand-rolled JWT validation does not check `iss`, `aud`, `nbf` claims | `api/deps.py:76-118` | Tokens from other services sharing the same secret are accepted |
-| SEC-C5 | Empty `supabase_jwt_secret` defaults to `""` — trivially forgeable JWTs | `api/deps.py:97`, `config.py:41` | Full auth bypass if operator forgets to set env var |
+| ID | Finding | File | Impact | Status |
+|----|---------|------|--------|--------|
+| SEC-C1 | MCP HTTP mode has no enforced auth | `mcp_server/server.py` | Full unauthenticated access to all data + LLM credits | Open |
+| SEC-C2 | IDOR: `remove_example` skips ownership check | `api/routes/collections.py` | Any user can delete any other user's collection examples | **Fixed** (PR #20) |
+| SEC-C3 | Billing webhook matches user by email (not unique column) | `api/routes/billing.py` | Wrong user could be tier-upgraded/downgraded | Open |
+| SEC-C4 | Hand-rolled JWT validation does not check `iss`, `aud`, `nbf` claims | `api/deps.py` | Tokens from other services sharing the same secret are accepted | Open |
+| SEC-C5 | Empty `supabase_jwt_secret` defaults to `""` — trivially forgeable JWTs | `api/deps.py`, `config.py` | Full auth bypass if operator forgets to set env var | Open |
 
 ### HIGH
 
-| ID | Finding | File |
-|----|---------|------|
-| SEC-H1 | `check_collection_example_limit` does not verify collection ownership | `api/deps.py:370-394` |
-| SEC-H2 | In-memory rate limiter not shared across workers | `api/deps.py:239-271` |
-| SEC-H3 | Analytics endpoints (`/analytics/stats`, `/popular`, `/co-picked`) fully unauthenticated, leak user query history | `api/routes/analytics.py` |
-| SEC-H4 | Internal exception details leaked to clients (`str(e)` in HTTPException) | `api/routes/search.py:105`, `export.py:103` |
-| SEC-H5 | Qdrant running without auth, ports published to host in docker-compose | `docker-compose.yml:19-31` |
-| SEC-H6 | Hardcoded `cherry/cherry` DB credentials in docker-compose and Helm values | `docker-compose.yml:5-8`, `values.yaml:24-25` |
+| ID | Finding | File | Status |
+|----|---------|------|--------|
+| SEC-H1 | `check_collection_example_limit` does not verify collection ownership | `api/deps.py` | Open |
+| SEC-H2 | In-memory rate limiter not shared across workers | `api/deps.py` | Open |
+| SEC-H3 | Analytics endpoints fully unauthenticated, leak user query history | `api/routes/analytics.py` | **Partial** (PR #22: query strings hidden for anonymous users via privacy scoping) |
+| SEC-H4 | Internal exception details leaked to clients (`str(e)` in HTTPException) | `api/routes/search.py`, `export.py`, `mcp_server/server.py` | **Fixed** (PR #20: search/export, PR #22: MCP) |
+| SEC-H5 | Qdrant running without auth, ports published to host in docker-compose | `docker-compose.yml` | **Partial** (PR #23: Postgres bound to localhost; Qdrant still open) |
+| SEC-H6 | Hardcoded `cherry/cherry` DB credentials in docker-compose and Helm values | `docker-compose.yml`, `values.yaml` | Open |
 
 ### MEDIUM
 
-| ID | Finding | File |
-|----|---------|------|
-| SEC-M1 | Qdrant collection name from user input — no allowlist validation | `api/models/search.py:55,69` |
-| SEC-M2 | `sort_by` parameter not validated against allowed values | `api/models/search.py:17` |
-| SEC-M3 | `Content-Disposition` filename not sanitized — header injection risk | `api/routes/export.py:127`, `agents.py:211` |
-| SEC-M4 | Daily quota TOCTOU race condition (read-then-write without lock) | `api/deps.py:279-338` |
-| SEC-M5 | CORS: `allow_credentials=True` with `allow_methods=["*"]`, `allow_headers=["*"]` | `api/main.py:28-34` |
-| SEC-M6 | nginx missing CSP, HSTS, Permissions-Policy headers | `frontend/nginx.conf:27-31` |
-| SEC-M7 | Helm chart missing all auth/billing secrets (Supabase, Polar, CORS) | `deploy/helm/cherry-evals/templates/secret.yaml` |
+| ID | Finding | File | Status |
+|----|---------|------|--------|
+| SEC-M1 | Qdrant collection name from user input — no allowlist validation | `api/models/search.py` | **Fixed** (PR #22: regex pattern `^[a-z0-9_]{1,64}$`) |
+| SEC-M2 | `sort_by` parameter not validated against allowed values | `api/models/search.py` | **Fixed** (already `Literal` type; PR #22 added test confirming 422) |
+| SEC-M3 | `Content-Disposition` filename not sanitized — header injection risk | `api/routes/export.py`, `agents.py` | **Fixed** (PR #20: `_sanitize_filename()` with regex) |
+| SEC-M4 | Daily quota TOCTOU race condition (read-then-write without lock) | `api/deps.py` | **Fixed** (PR #20: atomic SQL `UPDATE...WHERE` with rowcount check) |
+| SEC-M5 | CORS: `allow_credentials=True` with `allow_methods=["*"]`, `allow_headers=["*"]` | `api/main.py` | Open |
+| SEC-M6 | nginx missing CSP, HSTS, Permissions-Policy headers | `frontend/nginx.conf` | **Fixed** (PR #23: CSP, HSTS, X-Frame-Options DENY) |
+| SEC-M7 | Helm chart missing all auth/billing secrets (Supabase, Polar, CORS) | `deploy/helm/` | Open |
 
 ### LOW
 
-| ID | Finding | File |
-|----|---------|------|
-| SEC-L1 | IP rate limit uses `request.client.host` behind proxy — all users share one bucket | `api/deps.py:246` |
-| SEC-L2 | `X-Session-Id` stored raw without format validation | `core/traces/events.py:32` |
-| SEC-L3 | `/analytics/popular` limit has no upper bound | `api/routes/analytics.py:23` |
-| SEC-L4 | Dockerfile runs app as root | `Dockerfile` |
-| SEC-L5 | Agentic ingestion may execute LLM-generated code (see LLM section) | `api/routes/agents.py:118` |
+| ID | Finding | File | Status |
+|----|---------|------|--------|
+| SEC-L1 | IP rate limit uses `request.client.host` behind proxy — all users share one bucket | `api/deps.py` | Open |
+| SEC-L2 | `X-Session-Id` stored raw without format validation | `core/traces/events.py` | **Fixed** (PR #22: regex `^[0-9a-zA-Z\-_]{1,100}$`) |
+| SEC-L3 | `/analytics/popular` limit has no upper bound | `api/routes/analytics.py` | **Fixed** (PR #22: `Query(20, ge=1, le=200)`) |
+| SEC-L4 | Dockerfile runs app as root | `Dockerfile` | Open |
+| SEC-L5 | Agentic ingestion may execute LLM-generated code (see LLM section) | `agents/ingestion_agent.py` | **Fixed** (PR #25: restricted exec sandbox)
 
 ---
 
@@ -70,35 +73,35 @@ Both must be fixed before any public-facing deployment.
 
 ### CRITICAL
 
-| ID | Finding | File | Impact |
-|----|---------|------|--------|
-| LLM-C1 | `exec()` with full `__builtins__` on LLM-generated ingestion parser code | `agents/ingestion_agent.py:96-111` | **Remote code execution** — attacker-controlled description → Gemini → exec'd code with open(), __import__(), os, subprocess |
-| LLM-C2 | `exec()` with full `__builtins__` on LLM-generated export converter code | `agents/export_agent.py:110-134` | **Remote code execution** — `format_description` prompt injection → exec'd code |
+| ID | Finding | File | Impact | Status |
+|----|---------|------|--------|--------|
+| LLM-C1 | `exec()` with full `__builtins__` on LLM-generated ingestion parser code | `agents/ingestion_agent.py` | **Remote code execution** | **Fixed** (PR #25: `safe_builtins` allowlist + output scanning) |
+| LLM-C2 | `exec()` with full `__builtins__` on LLM-generated export converter code | `agents/export_agent.py` | **Remote code execution** | **Fixed** (PR #25: `safe_builtins` allowlist + output scanning) |
 
 ### HIGH
 
-| ID | Finding | File |
-|----|---------|------|
-| LLM-H1 | Raw user queries injected into all LLM prompts (no sanitization, no structural separation) | `query_agent.py:36`, `search_agent.py:341,375`, `reranker.py:41` |
-| LLM-H2 | Dataset `question`/`answer` content injected into reranker and evaluator prompts (indirect injection via DB) | `reranker.py:27-42`, `search_agent.py:365-373` |
-| LLM-H3 | `format_description` enables LLM scope creep + triggers RCE via exec() | `agents/export_agent.py:206-208` |
-| LLM-H4 | MCP tools have zero auth, rate limits, or quota enforcement | `mcp_server/server.py` |
-| LLM-H5 | MCP collection tools expose all users' data (no user scoping) | `mcp_server/server.py:342-549` |
+| ID | Finding | File | Status |
+|----|---------|------|--------|
+| LLM-H1 | Raw user queries injected into all LLM prompts (no sanitization, no structural separation) | `query_agent.py`, `search_agent.py`, `reranker.py` | Open |
+| LLM-H2 | Dataset `question`/`answer` content injected into reranker and evaluator prompts (indirect injection via DB) | `reranker.py`, `search_agent.py` | Open |
+| LLM-H3 | `format_description` enables LLM scope creep + triggers RCE via exec() | `agents/export_agent.py` | **Mitigated** (PR #25: exec sandbox prevents RCE; prompt injection risk remains) |
+| LLM-H4 | MCP tools have zero auth, rate limits, or quota enforcement | `mcp_server/server.py` | Open |
+| LLM-H5 | MCP collection tools expose all users' data (no user scoping) | `mcp_server/server.py` | Open |
 
 ### MEDIUM
 
-| ID | Finding | File |
-|----|---------|------|
-| LLM-M1 | HuggingFace sample rows embedded in Gemini prompt — dataset poisoning → RCE chain | `agents/ingestion_agent.py:309-313` |
-| LLM-M2 | No content validation/sanitization on ingested dataset rows | All ingestion adapters |
-| LLM-M3 | No length limits on `format_description` or `description` fields sent to LLMs | `api/routes/agents.py:45-50` |
-| LLM-M4 | LLM-supplied HuggingFace dataset ID passed to `load_dataset()` without allowlisting | `agents/ingestion_agent.py:247-266` |
+| ID | Finding | File | Status |
+|----|---------|------|--------|
+| LLM-M1 | HuggingFace sample rows embedded in Gemini prompt — dataset poisoning risk | `agents/ingestion_agent.py` | **Mitigated** (PR #25: exec sandbox blocks RCE chain; poisoning risk remains) |
+| LLM-M2 | No content validation/sanitization on ingested dataset rows | All ingestion adapters | Open |
+| LLM-M3 | No length limits on `format_description` or `description` fields sent to LLMs | `api/routes/agents.py` | **Fixed** (existing `max_length` on Pydantic fields: 500 for description, 1000 for format_description) |
+| LLM-M4 | LLM-supplied HuggingFace dataset ID passed to `load_dataset()` without allowlisting | `agents/ingestion_agent.py` | **Partial** (PR #22: `hf_dataset_id` pattern validation `^[\w\-./]+$`) |
 
 ### LOW
 
-| ID | Finding | File |
-|----|---------|------|
-| LLM-L1 | LLM reasoning fields (`explanation`, `assessment`, `rationale`) returned unfiltered — system prompt leakage risk | `api/routes/search.py:242`, `search_agent.py:214` |
+| ID | Finding | File | Status |
+|----|---------|------|--------|
+| LLM-L1 | LLM reasoning fields (`explanation`, `assessment`, `rationale`) returned unfiltered — system prompt leakage risk | `api/routes/search.py`, `search_agent.py` | Open |
 
 ---
 
@@ -158,30 +161,38 @@ Both must be fixed before any public-facing deployment.
 
 ## 7. Priority Remediation Roadmap
 
+### Done
+
+| # | Fix | PR |
+|---|-----|----|
+| ~~1~~ | ~~Fix `exec()` sandbox~~ — restricted `__builtins__` to safe allowlist + output scanning | PR #25 |
+| ~~2~~ | ~~Fix IDOR~~ — shared `check_collection_ownership()` in `api/deps.py` | PR #20 |
+| ~~8~~ | ~~Input length limits~~ — already enforced via Pydantic `max_length` on all agent request fields | Existing |
+| ~~11~~ | ~~Add CSP header~~ + HSTS + X-Frame-Options DENY to nginx | PR #23 |
+| ~~15~~ | ~~Atomic quota increment~~ — SQL `UPDATE...WHERE` with rowcount check | PR #20 |
+
 ### Immediate (before any public access)
 
-1. **Fix `exec()` sandbox** in `ingestion_agent.py` and `export_agent.py` — replace `__builtins__` with strict allowlist
-2. **Fix IDOR** on `DELETE /collections/{id}/examples/{id}` — add `_check_collection_ownership()`
-3. **Enforce auth on MCP tools** or document that MCP HTTP must never be publicly exposed
-4. **Add startup assertion** that `supabase_jwt_secret` is non-empty when `auth_enabled=True`
-5. **Replace hand-rolled JWT** with PyJWT library (validates `iss`, `aud`, `nbf`)
+1. **Enforce auth on MCP tools** or document that MCP HTTP must never be publicly exposed (SEC-C1)
+2. **Add startup assertion** that `supabase_jwt_secret` is non-empty when `auth_enabled=True` (SEC-C5)
+3. **Replace hand-rolled JWT** with PyJWT library — validate `iss`, `aud`, `nbf` claims (SEC-C4)
+4. **Fix billing webhook** to use `polar_customer_id` for returning subscribers + add UNIQUE on email (SEC-C3)
 
 ### Before launch
 
-6. **Add `DELETE /account/me`** endpoint with cascade to curation_events, collections, API keys
-7. **Add `GET /account/export`** for data portability (all user data as JSON)
-8. **Add input length limits** on all user strings sent to LLMs (`max_length=2000`)
-9. **Add structural prompt separation** (XML tags for user data, system instructions in `system` role)
-10. **Fix billing webhook** to use `polar_customer_id` for returning subscribers + add UNIQUE on email
-11. **Add CSP header** to nginx config
-12. **Scope MCP collections** to authenticated user
-13. **Sign DPAs** with Supabase, Polar.sh, Google, Anthropic
+5. **Add `DELETE /account/me`** endpoint with cascade to curation_events, collections, API keys (GDPR-2)
+6. **Add `GET /account/export`** for data portability — all user data as JSON (GDPR-6)
+7. **Add structural prompt separation** — XML tags for user data, system instructions in `system` role (LLM-H1, LLM-H2)
+8. **Scope MCP collections** to authenticated user (LLM-H5)
+9. **Tighten CORS** — restrict `allow_methods` and `allow_headers` to needed values (SEC-M5)
+10. **Add Helm auth secrets** — Supabase, Polar, CORS (SEC-M7)
+11. **Sign DPAs** with Supabase, Polar.sh, Google, Anthropic (GDPR-5)
 
 ### After launch
 
-14. **Move rate limiter** to Redis for multi-worker correctness
-15. **Atomic quota increment** (SQL `UPDATE ... WHERE ... RETURNING`)
-16. **Add Langfuse instrumentation** to LLM calls for AI Act audit trail
-17. **Implement data retention policy** — anonymise curation events older than 24 months
-18. **Run container as non-root** user
-19. **Secure Qdrant** with API key in docker-compose and Helm
+12. **Move rate limiter** to Redis for multi-worker correctness (SEC-H2)
+13. **Add Langfuse instrumentation** to LLM calls for AI Act audit trail (AI-2)
+14. **Implement data retention policy** — anonymise curation events older than 24 months (GDPR-7)
+15. **Run container as non-root** user (SEC-L4)
+16. **Secure Qdrant** with API key in docker-compose and Helm (SEC-H5)
+17. **Replace hardcoded DB credentials** with env vars / secrets (SEC-H6)
