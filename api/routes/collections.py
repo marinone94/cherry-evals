@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from api.deps import (
     check_collection_example_limit,
     check_collection_limit,
+    check_collection_ownership,
     get_current_user,
 )
 from api.models.collections import (
@@ -90,13 +91,6 @@ def list_collections(
     )
 
 
-def _check_collection_ownership(collection: Collection, user: User | None):
-    """Verify collection belongs to the current user (when auth is enabled)."""
-    if settings.auth_enabled and user is not None:
-        if collection.user_id != user.supabase_id:
-            raise HTTPException(status_code=404, detail="Collection not found")
-
-
 @router.get("/{collection_id}", response_model=CollectionResponse)
 def get_collection(
     collection_id: int,
@@ -107,7 +101,7 @@ def get_collection(
     collection = db.get(Collection, collection_id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
-    _check_collection_ownership(collection, user)
+    check_collection_ownership(collection, user)
     return _collection_to_response(db, collection)
 
 
@@ -122,7 +116,7 @@ def update_collection(
     collection = db.get(Collection, collection_id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
-    _check_collection_ownership(collection, user)
+    check_collection_ownership(collection, user)
 
     if request.name is not None:
         collection.name = request.name
@@ -144,7 +138,7 @@ def delete_collection(
     collection = db.get(Collection, collection_id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
-    _check_collection_ownership(collection, user)
+    check_collection_ownership(collection, user)
 
     db.delete(collection)
     db.commit()
@@ -160,7 +154,7 @@ def list_collection_examples(
     collection = db.get(Collection, collection_id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
-    _check_collection_ownership(collection, user)
+    check_collection_ownership(collection, user)
 
     rows = db.execute(
         select(Example, CollectionExample.added_at)
@@ -203,7 +197,7 @@ def add_examples(
     collection = db.get(Collection, collection_id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
-    _check_collection_ownership(collection, user)
+    check_collection_ownership(collection, user)
 
     # Check which examples already exist in collection
     existing = set(
@@ -259,7 +253,7 @@ def remove_example(
     collection = db.get(Collection, collection_id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
-    _check_collection_ownership(collection, user)
+    check_collection_ownership(collection, user)
 
     ce = db.execute(
         select(CollectionExample).where(
@@ -298,7 +292,7 @@ def bulk_remove_examples(
     collection = db.get(Collection, collection_id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
-    _check_collection_ownership(collection, user)
+    check_collection_ownership(collection, user)
 
     ces = (
         db.execute(

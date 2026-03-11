@@ -208,4 +208,4 @@ class TestExportLangfuseValidation:
         )
 
         assert response.status_code == 502
-        assert "credentials" in response.json()["detail"].lower()
+        assert "langfuse" in response.json()["detail"].lower()

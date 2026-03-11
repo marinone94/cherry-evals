@@ -8,8 +8,8 @@ from datetime import UTC, datetime, timedelta
 
 import jwt as pyjwt
 from fastapi import Depends, Header, HTTPException, Request
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select, update
+from sqlalchemy.orm import Session, joinedload
 
 from cherry_evals.config import settings
 from db.postgres.base import get_db
@@ -103,6 +103,7 @@ def _provision_user(db: Session, supabase_id: str, email: str) -> User:
         email=email,
         tier="free",
         trial_ends_at=datetime.now(UTC) + timedelta(days=7),
+        quota_reset_at=datetime.now(UTC) + timedelta(days=1),
     )
     db.add(user)
     db.commit()
@@ -129,7 +130,9 @@ def _resolve_from_api_key(raw_key: str, db: Session) -> User:
     """Resolve a User from an API key."""
     key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
     api_key = db.execute(
-        select(ApiKey).where(ApiKey.key_hash == key_hash, ApiKey.is_active == True)  # noqa: E712
+        select(ApiKey)
+        .options(joinedload(ApiKey.user))
+        .where(ApiKey.key_hash == key_hash, ApiKey.is_active == True)  # noqa: E712
     ).scalar_one_or_none()
 
     if not api_key:
@@ -283,14 +286,26 @@ def check_semantic_search_quota(
     limits = _get_limits(user)
     daily_limit = limits["semantic_searches_per_day"]
 
-    if daily_limit != -1 and user.semantic_searches_today >= daily_limit:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Daily semantic search limit ({daily_limit}) reached. "
-            "Upgrade to Pro for unlimited.",
+    if daily_limit == -1:
+        # Unlimited — increment without bound check
+        db.execute(
+            update(User)
+            .where(User.id == user.id)
+            .values(semantic_searches_today=User.semantic_searches_today + 1)
         )
-
-    user.semantic_searches_today += 1
+    else:
+        # Atomic check-and-increment: only succeeds if under limit
+        result = db.execute(
+            update(User)
+            .where(User.id == user.id, User.semantic_searches_today < daily_limit)
+            .values(semantic_searches_today=User.semantic_searches_today + 1)
+        )
+        if result.rowcount == 0:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Daily semantic search limit ({daily_limit}) reached. "
+                "Upgrade to Pro for unlimited.",
+            )
     db.commit()
 
 
@@ -312,13 +327,23 @@ def check_and_increment_llm_budget(
             detail="LLM-powered features require a Pro subscription.",
         )
 
-    if daily_limit != -1 and user.llm_calls_today >= daily_limit:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Daily LLM call limit ({daily_limit}) reached.",
+    if daily_limit == -1:
+        # Unlimited — increment without bound check
+        db.execute(
+            update(User).where(User.id == user.id).values(llm_calls_today=User.llm_calls_today + 1)
         )
-
-    user.llm_calls_today += 1
+    else:
+        # Atomic check-and-increment: only succeeds if under limit
+        result = db.execute(
+            update(User)
+            .where(User.id == user.id, User.llm_calls_today < daily_limit)
+            .values(llm_calls_today=User.llm_calls_today + 1)
+        )
+        if result.rowcount == 0:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Daily LLM call limit ({daily_limit}) reached.",
+            )
     db.commit()
 
 
@@ -386,3 +411,13 @@ def check_collection_example_limit(
             status_code=403,
             detail=f"Example limit ({max_examples} per collection) reached. Upgrade to Pro.",
         )
+
+
+def check_collection_ownership(collection: Collection, user: User | None):
+    """Verify collection belongs to the current user (when auth is enabled).
+
+    Shared helper used by collections, export, and agents routes.
+    """
+    if settings.auth_enabled and user is not None:
+        if collection.user_id != user.supabase_id:
+            raise HTTPException(status_code=404, detail="Collection not found")

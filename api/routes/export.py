@@ -1,13 +1,14 @@
 """Export API endpoints."""
 
 import logging
+import re
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from api.deps import get_current_user
+from api.deps import check_collection_ownership, effective_tier, get_current_user
 from api.models.export import ExportFormat, ExportRequest, LangfuseExportResponse
 from cherry_evals.config import settings
 from core.export.formats import to_csv, to_json, to_jsonl
@@ -31,6 +32,11 @@ _FORMAT_EXTENSIONS = {
     ExportFormat.jsonl: "jsonl",
     ExportFormat.csv: "csv",
 }
+
+
+def _sanitize_filename(name: str) -> str:
+    """Sanitize a collection name for use in Content-Disposition header."""
+    return re.sub(r"[^a-zA-Z0-9_\-]", "_", name).lower()
 
 
 def _get_collection_examples(db: Session, collection_id: int):
@@ -67,20 +73,25 @@ def export_collection(
     """Export a collection to the specified format.
 
     For json/jsonl/csv: returns the file as a download.
-    For langfuse: pushes to Langfuse and returns a summary.
+    For langfuse: pushes to Langfuse and returns a summary (requires paid tier).
     """
     collection = db.get(Collection, collection_id)
     if not collection:
         raise HTTPException(status_code=404, detail="Collection not found")
 
-    # Ownership check — prevent IDOR
-    if settings.auth_enabled and user is not None:
-        if collection.user_id != user.supabase_id:
-            raise HTTPException(status_code=404, detail="Collection not found")
+    check_collection_ownership(collection, user)
 
     examples, dataset_names = _get_collection_examples(db, collection_id)
 
     if request.format == ExportFormat.langfuse:
+        # Langfuse is a premium integration — require paid tier
+        if settings.auth_enabled and user is not None:
+            if effective_tier(user) not in ("pro", "ultra"):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Langfuse export requires a Pro or Ultra subscription.",
+                )
+
         ds_name = request.langfuse_dataset_name or collection.name
         try:
             result = export_to_langfuse(
@@ -89,8 +100,8 @@ def export_collection(
                 dataset_description=collection.description,
                 dataset_names=dataset_names,
             )
-        except LangfuseExportError as e:
-            raise HTTPException(status_code=502, detail=str(e))
+        except LangfuseExportError:
+            raise HTTPException(status_code=502, detail="Langfuse export failed")
 
         try:
             record_event(
@@ -114,7 +125,7 @@ def export_collection(
     content = converters[request.format](examples, dataset_names)
     media_type = _FORMAT_MEDIA_TYPES[request.format]
     ext = _FORMAT_EXTENSIONS[request.format]
-    filename = f"{collection.name.replace(' ', '_').lower()}.{ext}"
+    filename = f"{_sanitize_filename(collection.name)}.{ext}"
 
     try:
         record_event(

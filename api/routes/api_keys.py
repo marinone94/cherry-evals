@@ -7,7 +7,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from api.deps import _get_limits, get_current_user
@@ -29,7 +29,7 @@ API_KEY_PREFIX = "ck_live_"
 class CreateApiKeyRequest(BaseModel):
     """Request to create a new API key."""
 
-    name: str = Field(default="Default", max_length=255)
+    name: str = Field(default="Default", min_length=1, max_length=255)
 
 
 class ApiKeyResponse(BaseModel):
@@ -67,9 +67,12 @@ def create_api_key(
     # Check tier limit
     max_keys = _get_limits(user)["max_api_keys"]
     active_count = db.execute(
-        select(ApiKey).where(ApiKey.user_id == user.id, ApiKey.is_active == True)  # noqa: E712
-    ).scalars()
-    if len(list(active_count)) >= max_keys:
+        select(func.count(ApiKey.id)).where(
+            ApiKey.user_id == user.id,
+            ApiKey.is_active == True,  # noqa: E712
+        )
+    ).scalar()
+    if active_count >= max_keys:
         raise HTTPException(
             status_code=403,
             detail=f"API key limit ({max_keys}) reached. Upgrade to Pro for more.",

@@ -1,6 +1,7 @@
 """Shared test fixtures for all test types."""
 
 import os
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch
 
@@ -85,7 +86,6 @@ def test_client(test_db_session, test_settings):
         patch("api.deps.settings", test_settings),
         patch("api.routes.export.settings", test_settings),
         patch("api.routes.collections.settings", test_settings),
-        patch("api.routes.agents.settings", test_settings),
         TestClient(app) as client,
     ):
         yield client
@@ -163,9 +163,16 @@ def expired_trial_user():
     )
 
 
-@pytest.fixture
-def authed_client_free(test_db_session, free_user):
-    """Test client authenticated as a Free user (auth_enabled=True)."""
+# ---------------------------------------------------------------------------
+# Authenticated test client factory
+# ---------------------------------------------------------------------------
+
+
+def _make_authed_client(test_db_session, user):
+    """Create a test client authenticated as the given user.
+
+    Patches settings across all route modules that reference them directly.
+    """
     authed_settings = Settings(
         database_url="sqlite:///./test.db",
         qdrant_url="http://localhost:6333",
@@ -182,165 +189,59 @@ def authed_client_free(test_db_session, free_user):
             pass
 
     def override_user():
-        return free_user
+        return user
 
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = override_user
     app.dependency_overrides[get_optional_user] = override_user
 
-    with (
-        patch("api.deps.settings", authed_settings),
-        patch("api.routes.export.settings", authed_settings),
-        patch("api.routes.collections.settings", authed_settings),
-        TestClient(app) as client,
-    ):
-        yield client
+    @contextmanager
+    def _client_context():
+        with (
+            patch("api.deps.settings", authed_settings),
+            patch("api.routes.export.settings", authed_settings),
+            patch("api.routes.collections.settings", authed_settings),
+            TestClient(app) as client,
+        ):
+            yield client
+        app.dependency_overrides.clear()
 
-    app.dependency_overrides.clear()
+    return _client_context()
+
+
+@pytest.fixture
+def authed_client_free(test_db_session, free_user):
+    """Test client authenticated as a Free user (auth_enabled=True)."""
+    with _make_authed_client(test_db_session, free_user) as client:
+        yield client
 
 
 @pytest.fixture
 def authed_client_pro(test_db_session, pro_user):
     """Test client authenticated as a Pro user (auth_enabled=True)."""
-    authed_settings = Settings(
-        database_url="sqlite:///./test.db",
-        qdrant_url="http://localhost:6333",
-        google_api_key="test-api-key",
-        cherry_data_dir=Path("./test_data"),
-        auth_enabled=True,
-        supabase_jwt_secret="test-secret",
-    )
-
-    def override_get_db():
-        try:
-            yield test_db_session
-        finally:
-            pass
-
-    def override_user():
-        return pro_user
-
-    app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_current_user] = override_user
-    app.dependency_overrides[get_optional_user] = override_user
-
-    with (
-        patch("api.deps.settings", authed_settings),
-        patch("api.routes.export.settings", authed_settings),
-        patch("api.routes.collections.settings", authed_settings),
-        TestClient(app) as client,
-    ):
+    with _make_authed_client(test_db_session, pro_user) as client:
         yield client
-
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture
 def authed_client_ultra(test_db_session, ultra_user):
     """Test client authenticated as an Ultra user (auth_enabled=True)."""
-    authed_settings = Settings(
-        database_url="sqlite:///./test.db",
-        qdrant_url="http://localhost:6333",
-        google_api_key="test-api-key",
-        cherry_data_dir=Path("./test_data"),
-        auth_enabled=True,
-        supabase_jwt_secret="test-secret",
-    )
-
-    def override_get_db():
-        try:
-            yield test_db_session
-        finally:
-            pass
-
-    def override_user():
-        return ultra_user
-
-    app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_current_user] = override_user
-    app.dependency_overrides[get_optional_user] = override_user
-
-    with (
-        patch("api.deps.settings", authed_settings),
-        patch("api.routes.export.settings", authed_settings),
-        patch("api.routes.collections.settings", authed_settings),
-        TestClient(app) as client,
-    ):
+    with _make_authed_client(test_db_session, ultra_user) as client:
         yield client
-
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture
 def authed_client_trial(test_db_session, trial_user):
     """Test client authenticated as a Free user with active Ultra trial."""
-    authed_settings = Settings(
-        database_url="sqlite:///./test.db",
-        qdrant_url="http://localhost:6333",
-        google_api_key="test-api-key",
-        cherry_data_dir=Path("./test_data"),
-        auth_enabled=True,
-        supabase_jwt_secret="test-secret",
-    )
-
-    def override_get_db():
-        try:
-            yield test_db_session
-        finally:
-            pass
-
-    def override_user():
-        return trial_user
-
-    app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_current_user] = override_user
-    app.dependency_overrides[get_optional_user] = override_user
-
-    with (
-        patch("api.deps.settings", authed_settings),
-        patch("api.routes.export.settings", authed_settings),
-        patch("api.routes.collections.settings", authed_settings),
-        TestClient(app) as client,
-    ):
+    with _make_authed_client(test_db_session, trial_user) as client:
         yield client
-
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture
 def authed_client_expired_trial(test_db_session, expired_trial_user):
     """Test client authenticated as a Free user with expired trial."""
-    authed_settings = Settings(
-        database_url="sqlite:///./test.db",
-        qdrant_url="http://localhost:6333",
-        google_api_key="test-api-key",
-        cherry_data_dir=Path("./test_data"),
-        auth_enabled=True,
-        supabase_jwt_secret="test-secret",
-    )
-
-    def override_get_db():
-        try:
-            yield test_db_session
-        finally:
-            pass
-
-    def override_user():
-        return expired_trial_user
-
-    app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_current_user] = override_user
-    app.dependency_overrides[get_optional_user] = override_user
-
-    with (
-        patch("api.deps.settings", authed_settings),
-        patch("api.routes.export.settings", authed_settings),
-        patch("api.routes.collections.settings", authed_settings),
-        TestClient(app) as client,
-    ):
+    with _make_authed_client(test_db_session, expired_trial_user) as client:
         yield client
-
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="session", autouse=True)

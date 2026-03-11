@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 
@@ -12,10 +12,9 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Already logged in
+  // Already logged in — redirect via component, not imperative navigate in render
   if (user) {
-    navigate('/');
-    return null;
+    return <Navigate to="/" replace />;
   }
 
   if (!supabase) {

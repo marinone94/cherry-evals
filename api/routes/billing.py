@@ -1,5 +1,6 @@
 """Polar.sh billing webhook endpoint."""
 
+import base64
 import hashlib
 import hmac
 import logging
@@ -17,13 +18,46 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["billing"])
 
 
-def _verify_polar_signature(payload: bytes, signature: str) -> bool:
-    """Verify Polar webhook HMAC-SHA256 signature."""
+def _verify_polar_signature(payload: bytes, headers: dict[str, str]) -> bool:
+    """Verify Polar webhook signature (Svix format).
+
+    Polar uses Svix under the hood. Signature format:
+    - Headers: webhook-id, webhook-timestamp, webhook-signature
+    - Signed content: ``{msg_id}.{timestamp}.{body}``
+    - Secret may have ``whsec_`` prefix (base64-encoded key)
+    - Signature header: ``v1,<base64(HMAC-SHA256(key, signed_content))>``
+    """
     if not settings.polar_webhook_secret:
         logger.warning("POLAR_WEBHOOK_SECRET not configured, rejecting webhook")
         return False
-    expected = hmac.new(settings.polar_webhook_secret.encode(), payload, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, signature)
+
+    msg_id = headers.get("webhook-id", "")
+    timestamp = headers.get("webhook-timestamp", "")
+    signature = headers.get("webhook-signature", "")
+
+    if not all([msg_id, timestamp, signature]):
+        return False
+
+    # Svix secret format: whsec_<base64-key>
+    secret = settings.polar_webhook_secret
+    if secret.startswith("whsec_"):
+        secret = secret[6:]
+
+    try:
+        key = base64.b64decode(secret)
+    except Exception:
+        key = secret.encode()
+
+    to_sign = f"{msg_id}.{timestamp}.".encode() + payload
+    expected = base64.b64encode(hmac.new(key, to_sign, hashlib.sha256).digest()).decode()
+
+    # Signature header may contain multiple versions: "v1,<sig1> v1,<sig2>"
+    for sig_part in signature.split():
+        if sig_part.startswith("v1,"):
+            if hmac.compare_digest(expected, sig_part[3:]):
+                return True
+
+    return False
 
 
 @router.post("/webhooks/polar")
@@ -34,10 +68,9 @@ async def polar_webhook(request: Request, db: Session = Depends(get_db)):
     - subscription.created / subscription.updated → set tier to pro
     - subscription.canceled / subscription.revoked → set tier to free
     """
-    signature = request.headers.get("webhook-signature", "")
     body = await request.body()
 
-    if not _verify_polar_signature(body, signature):
+    if not _verify_polar_signature(body, dict(request.headers)):
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
 
     import json
@@ -89,13 +122,25 @@ async def polar_webhook(request: Request, db: Session = Depends(get_db)):
             # Default to pro if product ID not configured yet
             tier = "pro"
 
-        user.tier = tier
+        # Only upgrade tier when subscription is confirmed active
+        if subscription_status in ("active", "trialing"):
+            user.tier = tier
+            # Trial is superseded by paid subscription
+            user.trial_ends_at = None
+            logger.info(
+                "Upgraded user %s to %s (subscription %s)", user.email, tier, subscription_id
+            )
+        else:
+            logger.info(
+                "Subscription %s for %s has status %s — not upgrading tier yet",
+                subscription_id,
+                user.email,
+                subscription_status,
+            )
+
         user.polar_customer_id = customer_id
         user.polar_subscription_id = subscription_id
         user.subscription_status = subscription_status
-        # Trial is superseded by paid subscription
-        user.trial_ends_at = None
-        logger.info("Upgraded user %s to %s (subscription %s)", user.email, tier, subscription_id)
     elif event_type in ("subscription.canceled", "subscription.revoked"):
         user.tier = "free"
         user.subscription_status = subscription_status

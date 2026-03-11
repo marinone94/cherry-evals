@@ -134,8 +134,10 @@ def _compile_parse_function(code: str) -> callable | None:
     }
 
     try:
+        import re
+
         namespace: dict = {}
-        exec(code, {"__builtins__": safe_builtins}, namespace)  # noqa: S102
+        exec(code, {"__builtins__": safe_builtins, "re": re}, namespace)  # noqa: S102
         fn = namespace.get("parse_row")
         if fn is None or not callable(fn):
             logger.warning("Generated code does not define a callable 'parse_row'")
