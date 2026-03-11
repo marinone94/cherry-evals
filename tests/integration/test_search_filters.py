@@ -132,13 +132,12 @@ def test_search_sort_dataset(test_client, test_db_session):
     assert names == sorted(names), "dataset sort should group by dataset name"
 
 
-def test_search_sort_invalid_defaults_gracefully(test_client, test_db_session):
-    """Unknown sort_by value falls back without server error."""
+def test_search_sort_invalid_rejected(test_client, test_db_session):
+    """Unknown sort_by value is rejected with 422 (validated via Literal type)."""
     _seed(test_db_session)
 
     resp = test_client.post("/search", json={"query": "capital", "sort_by": "unknown_sort"})
-    # Should still return 200 with results (treated as relevance)
-    assert resp.status_code == 200
+    assert resp.status_code == 422
 
 
 # ── Facets endpoint ───────────────────────────────────────────────────────────

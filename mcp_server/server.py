@@ -16,6 +16,7 @@ Usage:
 """
 
 import json
+import logging
 import sys
 
 from mcp.server.fastmcp import FastMCP
@@ -34,6 +35,8 @@ from db.postgres.models import (
     Dataset,
     Example,
 )
+
+logger = logging.getLogger(__name__)
 
 mcp = FastMCP(
     "cherry-evals",
@@ -178,8 +181,9 @@ def semantic_search_examples(
             subject=subject,
         )
         return json.dumps({"results": results, "total": len(results)}, indent=2)
-    except Exception as exc:
-        return json.dumps({"error": f"Semantic search unavailable: {exc}"})
+    except Exception:
+        logger.exception("Semantic search failed in MCP")
+        return json.dumps({"error": "Semantic search temporarily unavailable"})
 
 
 @mcp.tool()
@@ -223,10 +227,14 @@ def hybrid_search_examples(
         return json.dumps({"results": results, "total": total}, indent=2)
     except Exception as exc:
         # Fall back to keyword search
+        logger.warning("Hybrid search fell back to keyword: %s", exc)
         results, total = keyword_search(
             db=db, query=query, dataset_name=dataset_name, subject=subject, limit=limit
         )
-        return json.dumps({"results": results, "total": total, "fallback": str(exc)}, indent=2)
+        return json.dumps(
+            {"results": results, "total": total, "fallback": "semantic unavailable"},
+            indent=2,
+        )
     finally:
         db.close()
 

@@ -1,6 +1,7 @@
 """Event tracking service for curation traces."""
 
 import logging
+import re
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -8,6 +9,8 @@ from sqlalchemy.orm import Session
 from db.postgres.models import CurationEvent
 
 logger = logging.getLogger(__name__)
+
+_SESSION_ID_RE = re.compile(r"^[0-9a-zA-Z\-_]{1,100}$")
 
 
 def record_event(
@@ -26,6 +29,9 @@ def record_event(
     metadata: dict | None = None,
 ) -> CurationEvent | None:
     """Record a curation event. Non-blocking — failures are logged, not raised."""
+    # Validate session_id format to prevent arbitrary string storage
+    if session_id and not _SESSION_ID_RE.match(session_id):
+        session_id = None
     try:
         event = CurationEvent(
             event_type=event_type,
@@ -49,35 +55,53 @@ def record_event(
         return None
 
 
-def get_event_stats(db: Session) -> dict:
+def get_event_stats(db: Session, user_id: str | None = None) -> dict:
     """Get aggregate stats on curation events.
+
+    When *user_id* is provided, all queries are scoped to that user.
+    When anonymous (user_id=None), raw query strings are omitted for privacy.
 
     Returns a dict with total_events, events_by_type, most_searched_queries, etc.
     """
-    total_events = db.execute(select(func.count(CurationEvent.id))).scalar() or 0
+    base_filter = (CurationEvent.user_id == user_id,) if user_id else ()
+
+    total_events = (
+        db.execute(select(func.count(CurationEvent.id)).where(*base_filter)).scalar() or 0
+    )
 
     # Events grouped by type
     rows = db.execute(
         select(CurationEvent.event_type, func.count(CurationEvent.id).label("cnt"))
+        .where(*base_filter)
         .group_by(CurationEvent.event_type)
         .order_by(func.count(CurationEvent.id).desc())
     ).all()
     events_by_type = {row.event_type: row.cnt for row in rows}
 
-    # Most searched queries (top 10)
-    query_rows = db.execute(
-        select(CurationEvent.query, func.count(CurationEvent.id).label("cnt"))
-        .where(CurationEvent.event_type == "search", CurationEvent.query.isnot(None))
-        .group_by(CurationEvent.query)
-        .order_by(func.count(CurationEvent.id).desc())
-        .limit(10)
-    ).all()
-    most_searched_queries = [{"query": r.query, "count": r.cnt} for r in query_rows]
+    # Most searched queries (top 10) — only shown to authenticated users
+    most_searched_queries: list[dict] = []
+    if user_id:
+        query_rows = db.execute(
+            select(CurationEvent.query, func.count(CurationEvent.id).label("cnt"))
+            .where(
+                CurationEvent.event_type == "search",
+                CurationEvent.query.isnot(None),
+                *base_filter,
+            )
+            .group_by(CurationEvent.query)
+            .order_by(func.count(CurationEvent.id).desc())
+            .limit(10)
+        ).all()
+        most_searched_queries = [{"query": r.query, "count": r.cnt} for r in query_rows]
 
     # Most picked examples (top 10)
     pick_rows = db.execute(
         select(CurationEvent.example_id, func.count(CurationEvent.id).label("cnt"))
-        .where(CurationEvent.event_type == "pick", CurationEvent.example_id.isnot(None))
+        .where(
+            CurationEvent.event_type == "pick",
+            CurationEvent.example_id.isnot(None),
+            *base_filter,
+        )
         .group_by(CurationEvent.example_id)
         .order_by(func.count(CurationEvent.id).desc())
         .limit(10)

@@ -1,6 +1,6 @@
 """Analytics API endpoints for curation event insights."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from core.traces.events import get_co_picked_examples, get_event_stats, get_popular_examples
@@ -20,12 +20,19 @@ def analytics_stats(db: Session = Depends(get_db)):
 
 
 @router.get("/popular")
-def analytics_popular(limit: int = 20, db: Session = Depends(get_db)):
+def analytics_popular(
+    limit: int = Query(20, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
     """Return the most frequently picked examples across all users."""
     return get_popular_examples(db=db, limit=limit)
 
 
 @router.get("/co-picked/{example_id}")
-def analytics_co_picked(example_id: int, limit: int = 10, db: Session = Depends(get_db)):
+def analytics_co_picked(
+    example_id: int,
+    limit: int = Query(10, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
     """Return examples commonly picked alongside the given example."""
     return get_co_picked_examples(db=db, example_id=example_id, limit=limit)

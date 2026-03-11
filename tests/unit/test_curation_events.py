@@ -193,13 +193,14 @@ def test_get_event_stats_empty(db_session):
 
 def test_get_event_stats_with_events(db_session):
     """get_event_stats should correctly aggregate events."""
-    record_event(db=db_session, event_type="search", query="cats")
-    record_event(db=db_session, event_type="search", query="dogs")
-    record_event(db=db_session, event_type="search", query="cats")
-    record_event(db=db_session, event_type="pick")
-    record_event(db=db_session, event_type="export", export_format="json")
+    uid = "stats-test-user"
+    record_event(db=db_session, event_type="search", query="cats", user_id=uid)
+    record_event(db=db_session, event_type="search", query="dogs", user_id=uid)
+    record_event(db=db_session, event_type="search", query="cats", user_id=uid)
+    record_event(db=db_session, event_type="pick", user_id=uid)
+    record_event(db=db_session, event_type="export", export_format="json", user_id=uid)
 
-    stats = get_event_stats(db=db_session)
+    stats = get_event_stats(db=db_session, user_id=uid)
 
     assert stats["total_events"] == 5
     assert stats["events_by_type"]["search"] == 3
@@ -211,6 +212,18 @@ def test_get_event_stats_with_events(db_session):
     assert len(queries) >= 2
     assert queries[0]["query"] == "cats"
     assert queries[0]["count"] == 2
+
+
+def test_get_event_stats_anonymous_hides_queries(db_session):
+    """Anonymous get_event_stats should not expose raw query strings."""
+    record_event(db=db_session, event_type="search", query="secret query")
+
+    stats = get_event_stats(db=db_session)
+
+    # Without user_id, most_searched_queries should be empty (privacy)
+    assert stats["most_searched_queries"] == []
+    # But aggregated counts still work
+    assert stats["total_events"] >= 1
 
 
 # ---------------------------------------------------------------------------
