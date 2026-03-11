@@ -14,7 +14,7 @@ def test_get_qdrant_client_no_api_key(monkeypatch):
         mock_client_cls.return_value = MagicMock()
         get_qdrant_client()
 
-    mock_client_cls.assert_called_once_with(url="http://localhost:6333")
+    mock_client_cls.assert_called_once_with(url="http://localhost:6333", timeout=60)
 
 
 def test_get_qdrant_client_with_api_key(monkeypatch):
@@ -28,6 +28,7 @@ def test_get_qdrant_client_with_api_key(monkeypatch):
 
     mock_client_cls.assert_called_once_with(
         url="https://xyz.qdrant.io:6333",
+        timeout=60,
         api_key="secret-cloud-key",
     )
 
