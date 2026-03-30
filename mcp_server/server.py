@@ -8,21 +8,25 @@ Usage:
     # stdio (default, for Claude Desktop / local agents)
     uv run mcp_server/server.py
 
-    # HTTP (for remote agents)
+    # HTTP (for remote agents — requires X-Api-Key header when auth_enabled=True)
     uv run mcp_server/server.py --http
 
     # Test with MCP Inspector
     uv run mcp dev mcp_server/server.py
 """
 
+import hashlib
 import json
 import logging
 import sys
+from contextvars import ContextVar
 
 from mcp.server.fastmcp import FastMCP
 from sqlalchemy import func, select
+from sqlalchemy.orm import joinedload
 
 from agents.search_agent import SearchAgent
+from cherry_evals.config import settings
 from core.export.formats import to_csv, to_json, to_jsonl
 from core.search.hybrid import hybrid_search
 from core.search.intelligent import intelligent_search
@@ -30,13 +34,42 @@ from core.search.keyword import keyword_search
 from core.search.semantic import semantic_search
 from db.postgres.base import SessionLocal
 from db.postgres.models import (
+    ApiKey,
     Collection,
     CollectionExample,
     Dataset,
     Example,
+    User,
 )
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Auth context variables
+# ---------------------------------------------------------------------------
+
+# Holds the authenticated User for the current HTTP request (None in stdio mode)
+_current_user: ContextVar[User | None] = ContextVar("_current_user", default=None)
+# Transport type: "stdio" or "http"
+_current_transport: ContextVar[str] = ContextVar("_current_transport", default="stdio")
+
+
+def _resolve_user_from_api_key(raw_key: str, db) -> User | None:
+    """Look up and return the User associated with a raw API key.
+
+    Hashes the key with SHA-256 and queries the api_keys table.
+    Returns None if the key does not exist or is inactive.
+    """
+    key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+    api_key = db.execute(
+        select(ApiKey)
+        .options(joinedload(ApiKey.user))
+        .where(ApiKey.key_hash == key_hash, ApiKey.is_active == True)  # noqa: E712
+    ).scalar_one_or_none()
+    if not api_key:
+        return None
+    return api_key.user
+
 
 mcp = FastMCP(
     "cherry-evals",
@@ -51,6 +84,54 @@ mcp = FastMCP(
 def _get_db():
     """Create a database session."""
     return SessionLocal()
+
+
+# ---------------------------------------------------------------------------
+# HTTP auth middleware
+# ---------------------------------------------------------------------------
+
+
+def _build_http_app():
+    """Wrap the FastMCP streamable-HTTP ASGI app with API-key auth middleware."""
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.requests import Request
+    from starlette.responses import JSONResponse
+
+    class ApiKeyAuthMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request: Request, call_next):
+            # Health checks never require auth
+            if request.url.path == "/health":
+                return await call_next(request)
+
+            if not settings.auth_enabled:
+                return await call_next(request)
+
+            raw_key = request.headers.get("x-api-key", "")
+            if not raw_key:
+                return JSONResponse({"error": "API key required"}, status_code=401)
+
+            db = SessionLocal()
+            try:
+                user = _resolve_user_from_api_key(raw_key, db)
+            finally:
+                db.close()
+
+            if not user:
+                return JSONResponse({"error": "Invalid API key"}, status_code=401)
+
+            _current_user.set(user)
+            _current_transport.set("http")
+            return await call_next(request)
+
+    # FastMCP exposes the Starlette app via streamable_http_app()
+    base_app = mcp.streamable_http_app()
+    from starlette.applications import Starlette
+
+    app = Starlette()
+    app.add_middleware(ApiKeyAuthMiddleware)
+    # Mount the MCP app at root
+    app.mount("/", base_app)
+    return app
 
 
 # ---------------------------------------------------------------------------
@@ -321,12 +402,18 @@ def intelligent_search_examples(
 
 @mcp.tool()
 def list_collections() -> str:
-    """List all existing collections with their example counts."""
+    """List existing collections with their example counts.
+
+    In HTTP mode with auth enabled, only returns collections owned by the
+    authenticated user. In stdio mode, all collections are returned.
+    """
     db = _get_db()
     try:
-        collections = (
-            db.execute(select(Collection).order_by(Collection.created_at.desc())).scalars().all()
-        )
+        user = _current_user.get()
+        query = select(Collection).order_by(Collection.created_at.desc())
+        if user is not None:
+            query = query.where(Collection.user_id == user.supabase_id)
+        collections = db.execute(query).scalars().all()
         result = []
         for coll in collections:
             count = db.execute(
@@ -360,7 +447,9 @@ def create_collection(name: str, description: str | None = None) -> str:
     """
     db = _get_db()
     try:
-        coll = Collection(name=name, description=description)
+        user = _current_user.get()
+        user_id = user.supabase_id if user is not None else None
+        coll = Collection(name=name, description=description, user_id=user_id)
         db.add(coll)
         db.commit()
         db.refresh(coll)
@@ -391,6 +480,10 @@ def add_to_collection(collection_id: int, example_ids: list[int]) -> str:
     try:
         coll = db.get(Collection, collection_id)
         if not coll:
+            return json.dumps({"error": f"Collection {collection_id} not found"})
+
+        user = _current_user.get()
+        if user is not None and coll.user_id != user.supabase_id:
             return json.dumps({"error": f"Collection {collection_id} not found"})
 
         existing = set(
@@ -439,6 +532,10 @@ def get_collection(collection_id: int) -> str:
     try:
         coll = db.get(Collection, collection_id)
         if not coll:
+            return json.dumps({"error": f"Collection {collection_id} not found"})
+
+        user = _current_user.get()
+        if user is not None and coll.user_id != user.supabase_id:
             return json.dumps({"error": f"Collection {collection_id} not found"})
 
         rows = (
@@ -500,6 +597,10 @@ def export_collection(
     try:
         coll = db.get(Collection, collection_id)
         if not coll:
+            return json.dumps({"error": f"Collection {collection_id} not found"})
+
+        user = _current_user.get()
+        if user is not None and coll.user_id != user.supabase_id:
             return json.dumps({"error": f"Collection {collection_id} not found"})
 
         examples = (
@@ -628,6 +729,10 @@ def export_collection_custom(
         if not coll:
             return json.dumps({"error": f"Collection {collection_id} not found"})
 
+        user = _current_user.get()
+        if user is not None and coll.user_id != user.supabase_id:
+            return json.dumps({"error": f"Collection {collection_id} not found"})
+
         examples = (
             db.execute(
                 select(Example)
@@ -669,5 +774,19 @@ def export_collection_custom(
 
 
 if __name__ == "__main__":
-    transport = "streamable-http" if "--http" in sys.argv else "stdio"
-    mcp.run(transport=transport)
+    if "--http" in sys.argv:
+        import uvicorn
+
+        if settings.auth_enabled:
+            logger.info("MCP HTTP mode: API key authentication is ENABLED (X-Api-Key required)")
+        else:
+            logger.warning(
+                "MCP HTTP mode: auth_enabled=False — running WITHOUT authentication. "
+                "Set AUTH_ENABLED=True and SUPABASE_JWT_SECRET for production."
+            )
+        _current_transport.set("http")
+        http_app = _build_http_app()
+        uvicorn.run(http_app, host="0.0.0.0", port=8001)
+    else:
+        _current_transport.set("stdio")
+        mcp.run(transport="stdio")
