@@ -99,3 +99,37 @@ def test_settings_qdrant_api_key_empty_by_default(monkeypatch, tmp_path):
     settings = Settings()
 
     assert settings.qdrant_api_key == ""
+
+
+def test_settings_auth_enabled_without_jwt_secret_raises(monkeypatch, tmp_path):
+    """Settings must raise ValueError when AUTH_ENABLED=True but SUPABASE_JWT_SECRET is empty.
+
+    SEC-C5: Silent fallback to disabled auth is a security risk.
+    """
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("SUPABASE_JWT_SECRET", raising=False)
+
+    import pytest
+
+    with pytest.raises(ValueError, match="SUPABASE_JWT_SECRET must be set"):
+        Settings(auth_enabled=True, supabase_jwt_secret="")
+
+
+def test_settings_auth_disabled_without_jwt_secret_is_fine(monkeypatch, tmp_path):
+    """AUTH_ENABLED=False with no JWT secret should not raise — explicit opt-out is valid."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("SUPABASE_JWT_SECRET", raising=False)
+
+    settings = Settings(auth_enabled=False, supabase_jwt_secret="")
+
+    assert settings.auth_enabled is False
+
+
+def test_settings_auth_enabled_with_jwt_secret_is_fine(monkeypatch, tmp_path):
+    """AUTH_ENABLED=True with a non-empty JWT secret should not raise."""
+    monkeypatch.chdir(tmp_path)
+
+    settings = Settings(auth_enabled=True, supabase_jwt_secret="supersecret")
+
+    assert settings.auth_enabled is True
+    assert settings.supabase_jwt_secret == "supersecret"

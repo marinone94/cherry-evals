@@ -1,6 +1,13 @@
 """Shared test fixtures for all test types."""
 
 import os
+
+# Set AUTH_ENABLED=False before any application modules are imported.
+# The module-level `settings = Settings()` in cherry_evals/config.py will fail
+# at import time if AUTH_ENABLED=True and SUPABASE_JWT_SECRET is empty.
+# Individual test fixtures override settings via patch() as needed.
+os.environ.setdefault("AUTH_ENABLED", "False")
+
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch

@@ -3,20 +3,26 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from api.deps import get_optional_user
 from core.traces.events import get_co_picked_examples, get_event_stats, get_popular_examples
 from db.postgres.base import get_db
+from db.postgres.models import User
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
 @router.get("/stats")
-def analytics_stats(db: Session = Depends(get_db)):
-    """Return overall curation event stats.
+def analytics_stats(
+    user: User | None = Depends(get_optional_user),
+    db: Session = Depends(get_db),
+):
+    """Return curation event stats, scoped to the authenticated user when present.
 
-    Includes total events, events by type, most searched queries,
-    and most picked examples.
+    Authenticated users see their own stats including query history.
+    Unauthenticated requests see aggregate counts only (queries omitted for privacy).
     """
-    return get_event_stats(db=db)
+    user_id = user.supabase_id if user else None
+    return get_event_stats(db=db, user_id=user_id)
 
 
 @router.get("/popular")
