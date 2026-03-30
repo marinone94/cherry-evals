@@ -13,8 +13,8 @@
 **4 Critical**, **11 High**, **12 Medium**, **9 Low**, **10 compliance gaps**.
 
 **Remediation progress** (as of 31 March 2026):
-- **30 findings fixed** via PRs #20, #22, #23, #25, #27, #28, #29
-- **16 findings remaining** (open or partially addressed)
+- **34 findings fixed** via PRs #20, #22, #23, #25, #27, #28, #29
+- **12 findings remaining** (open, mitigated, or non-code)
 
 All Critical security vulnerabilities have been resolved:
 1. ~~**Remote code execution** via `exec()`~~ — Fixed in PR #25
@@ -65,7 +65,7 @@ All Critical security vulnerabilities have been resolved:
 
 | ID | Finding | File | Status |
 |----|---------|------|--------|
-| SEC-L1 | IP rate limit uses `request.client.host` behind proxy — all users share one bucket | `api/deps.py` | Open |
+| SEC-L1 | IP rate limit uses `request.client.host` behind proxy — all users share one bucket | `api/deps.py` | **Fixed** (PR #20: uses `X-Forwarded-For` from trusted proxy) |
 | SEC-L2 | `X-Session-Id` stored raw without format validation | `core/traces/events.py` | **Fixed** (PR #22: regex `^[0-9a-zA-Z\-_]{1,100}$`) |
 | SEC-L3 | `/analytics/popular` limit has no upper bound | `api/routes/analytics.py` | **Fixed** (PR #22: `Query(20, ge=1, le=200)`) |
 | SEC-L4 | Dockerfile runs app as root | `Dockerfile` | **Fixed** (already runs as `appuser` non-root since initial Dockerfile) |
@@ -130,11 +130,11 @@ All Critical security vulnerabilities have been resolved:
 | # | Gap | Severity | Status |
 |---|-----|----------|--------|
 | GDPR-1 | **No privacy policy** anywhere (landing page, app, API docs) | Critical | **Fixed**: created `/privacy` page, linked from footer |
-| GDPR-2 | **No right to erasure** — no `DELETE /account/me` endpoint; `curation_events.user_id` not FK-cascaded | Critical | Needs backend endpoint |
+| GDPR-2 | **No right to erasure** — no `DELETE /account/me` endpoint; `curation_events.user_id` not FK-cascaded | Critical | **Fixed** (PR #20: `DELETE /account/me` with cascade delete + event anonymisation) |
 | GDPR-3 | **No lawful basis articulation** for curation event collection (used for "collective intelligence" with no notice) | Critical | **Fixed**: documented in privacy policy as legitimate interest with opt-out |
 | GDPR-4 | **User queries sent to Google Gemini** with no disclosure or consent | Critical | **Fixed**: disclosed in privacy policy Section 3 |
 | GDPR-5 | **No sub-processor DPAs** documented or referenced | High | Needs operational DPA review with Supabase, Polar, Google, Anthropic, Qdrant, Langfuse |
-| GDPR-6 | **No right to data portability** endpoint | High | Needs `GET /account/export` endpoint |
+| GDPR-6 | **No right to data portability** endpoint | High | **Fixed** (PR #20: `GET /account/export` returns all user data as JSON) |
 | GDPR-7 | **No data retention policy** — curation events grow indefinitely | High | Needs retention job or documented policy |
 | GDPR-8 | **No ROPA** (Records of Processing Activities) | Medium | Needs internal document |
 | GDPR-9 | **API key soft-delete only** — hash+prefix retained after revocation | Low | Should hard-delete after reasonable period |
@@ -186,15 +186,16 @@ All Critical security vulnerabilities have been resolved:
 | ~~15~~ | ~~Atomic quota increment~~ — SQL `UPDATE...WHERE` with rowcount check | PR #20 |
 | ~~16~~ | ~~Analytics auth~~ — `get_optional_user` scoping on `/analytics/stats` | PR #27 |
 | ~~17~~ | ~~Container non-root~~ — already runs as `appuser` | Existing |
+| ~~18~~ | ~~Right to erasure~~ — `DELETE /account/me` with cascade + event anonymisation | PR #20 |
+| ~~19~~ | ~~Data portability~~ — `GET /account/export` returns all user data as JSON | PR #20 |
+| ~~20~~ | ~~IP rate limit behind proxy~~ — uses `X-Forwarded-For` from trusted proxy | PR #20 |
 
 ### Before launch
 
-1. **Add `DELETE /account/me`** endpoint with cascade to curation_events, collections, API keys (GDPR-2)
-2. **Add `GET /account/export`** for data portability — all user data as JSON (GDPR-6)
-3. **Sign DPAs** with Supabase, Polar.sh, Google, Anthropic (GDPR-5)
+1. **Sign DPAs** with Supabase, Polar.sh, Google, Anthropic (GDPR-5) — *requires owner action*
 
 ### After launch
 
-4. **Move rate limiter** to Redis for multi-worker correctness (SEC-H2)
-5. **Add Langfuse instrumentation** to LLM calls for AI Act audit trail (AI-2)
-6. **Implement data retention policy** — anonymise curation events older than 24 months (GDPR-7)
+2. **Move rate limiter** to Redis for multi-worker correctness (SEC-H2)
+3. **Add Langfuse instrumentation** to LLM calls for AI Act audit trail (AI-2)
+4. **Implement data retention policy** — anonymise curation events older than 24 months (GDPR-7)
