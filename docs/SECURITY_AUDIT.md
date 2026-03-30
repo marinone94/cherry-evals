@@ -1,7 +1,7 @@
 # Cherry Evals — Security, Privacy & Compliance Audit
 
 **Date**: 10 March 2026
-**Last updated**: 11 March 2026
+**Last updated**: 31 March 2026
 **Scope**: Full application (backend, frontend, agents, MCP, infrastructure, legal)
 **Status**: Pre-deployment review — remediation in progress
 
@@ -12,13 +12,17 @@
 **46 findings** across security, LLM exploitation, frontend, and compliance.
 **4 Critical**, **11 High**, **12 Medium**, **9 Low**, **10 compliance gaps**.
 
-**Remediation progress** (as of 11 March 2026):
-- **17 findings fixed** via PRs #20, #22, #23, #25
-- **29 findings remaining** (open or partially addressed)
+**Remediation progress** (as of 31 March 2026):
+- **30 findings fixed** via PRs #20, #22, #23, #25, #27, #28, #29
+- **16 findings remaining** (open or partially addressed)
 
-The two most severe issues (RCE via `exec()` and IDOR) have been fixed:
-1. ~~**Remote code execution** via `exec()`~~ — Fixed in PR #25 (restricted `__builtins__` to safe allowlist + output scanning)
-2. ~~**IDOR** on `DELETE /collections/{id}/examples/{id}`~~ — Fixed in PR #20 (shared `check_collection_ownership()` in `api/deps.py`)
+All Critical security vulnerabilities have been resolved:
+1. ~~**Remote code execution** via `exec()`~~ — Fixed in PR #25
+2. ~~**IDOR** on `DELETE /collections/{id}/examples/{id}`~~ — Fixed in PR #20
+3. ~~**MCP HTTP unauthenticated access**~~ — Fixed in PR #28 (API key auth middleware)
+4. ~~**Billing webhook email-only lookup**~~ — Fixed in PR #27 (UNIQUE on `polar_customer_id`)
+5. ~~**JWT missing issuer validation**~~ — Fixed in PR #27 (PyJWT `iss` check)
+6. ~~**Empty JWT secret silent fallback**~~ — Fixed in PR #27 (startup ValueError)
 
 ---
 
@@ -28,22 +32,22 @@ The two most severe issues (RCE via `exec()` and IDOR) have been fixed:
 
 | ID | Finding | File | Impact | Status |
 |----|---------|------|--------|--------|
-| SEC-C1 | MCP HTTP mode has no enforced auth | `mcp_server/server.py` | Full unauthenticated access to all data + LLM credits | Open |
+| SEC-C1 | MCP HTTP mode has no enforced auth | `mcp_server/server.py` | Full unauthenticated access to all data + LLM credits | **Fixed** (PR #28: API key auth middleware + user scoping) |
 | SEC-C2 | IDOR: `remove_example` skips ownership check | `api/routes/collections.py` | Any user can delete any other user's collection examples | **Fixed** (PR #20) |
-| SEC-C3 | Billing webhook matches user by email (not unique column) | `api/routes/billing.py` | Wrong user could be tier-upgraded/downgraded | Open |
-| SEC-C4 | Hand-rolled JWT validation does not check `iss`, `aud`, `nbf` claims | `api/deps.py` | Tokens from other services sharing the same secret are accepted | Open |
-| SEC-C5 | Empty `supabase_jwt_secret` defaults to `""` — trivially forgeable JWTs | `api/deps.py`, `config.py` | Full auth bypass if operator forgets to set env var | Open |
+| SEC-C3 | Billing webhook matches user by email (not unique column) | `api/routes/billing.py` | Wrong user could be tier-upgraded/downgraded | **Fixed** (PR #27: UNIQUE on `polar_customer_id`, already used as primary lookup) |
+| SEC-C4 | Hand-rolled JWT validation does not check `iss`, `aud`, `nbf` claims | `api/deps.py` | Tokens from other services sharing the same secret are accepted | **Fixed** (PR #27: issuer validation via `supabase_url + /auth/v1`) |
+| SEC-C5 | Empty `supabase_jwt_secret` defaults to `""` — trivially forgeable JWTs | `api/deps.py`, `config.py` | Full auth bypass if operator forgets to set env var | **Fixed** (PR #27: startup ValueError instead of silent fallback) |
 
 ### HIGH
 
 | ID | Finding | File | Status |
 |----|---------|------|--------|
-| SEC-H1 | `check_collection_example_limit` does not verify collection ownership | `api/deps.py` | Open |
+| SEC-H1 | `check_collection_example_limit` does not verify collection ownership | `api/deps.py` | **Fixed** (PR #20: ownership check added at lines 392-396) |
 | SEC-H2 | In-memory rate limiter not shared across workers | `api/deps.py` | Open |
-| SEC-H3 | Analytics endpoints fully unauthenticated, leak user query history | `api/routes/analytics.py` | **Partial** (PR #22: query strings hidden for anonymous users via privacy scoping) |
+| SEC-H3 | Analytics endpoints fully unauthenticated, leak user query history | `api/routes/analytics.py` | **Fixed** (PR #22 + PR #27: `get_optional_user` dependency, stats scoped to user) |
 | SEC-H4 | Internal exception details leaked to clients (`str(e)` in HTTPException) | `api/routes/search.py`, `export.py`, `mcp_server/server.py` | **Fixed** (PR #20: search/export, PR #22: MCP) |
-| SEC-H5 | Qdrant running without auth, ports published to host in docker-compose | `docker-compose.yml` | **Partial** (PR #23: Postgres bound to localhost; Qdrant still open) |
-| SEC-H6 | Hardcoded `cherry/cherry` DB credentials in docker-compose and Helm values | `docker-compose.yml`, `values.yaml` | Open |
+| SEC-H5 | Qdrant running without auth, ports published to host in docker-compose | `docker-compose.yml` | **Fixed** (PR #23: localhost binding, PR #29: `QDRANT__SERVICE__API_KEY` env var) |
+| SEC-H6 | Hardcoded `cherry/cherry` DB credentials in docker-compose and Helm values | `docker-compose.yml`, `values.yaml` | **Fixed** (PR #23: docker-compose uses env vars, PR #29: Helm `password: ""` REQUIRED) |
 
 ### MEDIUM
 
@@ -53,9 +57,9 @@ The two most severe issues (RCE via `exec()` and IDOR) have been fixed:
 | SEC-M2 | `sort_by` parameter not validated against allowed values | `api/models/search.py` | **Fixed** (already `Literal` type; PR #22 added test confirming 422) |
 | SEC-M3 | `Content-Disposition` filename not sanitized — header injection risk | `api/routes/export.py`, `agents.py` | **Fixed** (PR #20: `_sanitize_filename()` with regex) |
 | SEC-M4 | Daily quota TOCTOU race condition (read-then-write without lock) | `api/deps.py` | **Fixed** (PR #20: atomic SQL `UPDATE...WHERE` with rowcount check) |
-| SEC-M5 | CORS: `allow_credentials=True` with `allow_methods=["*"]`, `allow_headers=["*"]` | `api/main.py` | Open |
+| SEC-M5 | CORS: `allow_credentials=True` with `allow_methods=["*"]`, `allow_headers=["*"]` | `api/main.py` | **Fixed** (PR #20: restricted to specific methods + headers) |
 | SEC-M6 | nginx missing CSP, HSTS, Permissions-Policy headers | `frontend/nginx.conf` | **Fixed** (PR #23: CSP, HSTS, X-Frame-Options DENY) |
-| SEC-M7 | Helm chart missing all auth/billing secrets (Supabase, Polar, CORS) | `deploy/helm/` | Open |
+| SEC-M7 | Helm chart missing all auth/billing secrets (Supabase, Polar, CORS) | `deploy/helm/` | **Fixed** (PR #29: values, secret template, deployment env vars) |
 
 ### LOW
 
@@ -64,7 +68,7 @@ The two most severe issues (RCE via `exec()` and IDOR) have been fixed:
 | SEC-L1 | IP rate limit uses `request.client.host` behind proxy — all users share one bucket | `api/deps.py` | Open |
 | SEC-L2 | `X-Session-Id` stored raw without format validation | `core/traces/events.py` | **Fixed** (PR #22: regex `^[0-9a-zA-Z\-_]{1,100}$`) |
 | SEC-L3 | `/analytics/popular` limit has no upper bound | `api/routes/analytics.py` | **Fixed** (PR #22: `Query(20, ge=1, le=200)`) |
-| SEC-L4 | Dockerfile runs app as root | `Dockerfile` | Open |
+| SEC-L4 | Dockerfile runs app as root | `Dockerfile` | **Fixed** (already runs as `appuser` non-root since initial Dockerfile) |
 | SEC-L5 | Agentic ingestion may execute LLM-generated code (see LLM section) | `agents/ingestion_agent.py` | **Fixed** (PR #25: restricted exec sandbox)
 
 ---
@@ -82,11 +86,11 @@ The two most severe issues (RCE via `exec()` and IDOR) have been fixed:
 
 | ID | Finding | File | Status |
 |----|---------|------|--------|
-| LLM-H1 | Raw user queries injected into all LLM prompts (no sanitization, no structural separation) | `query_agent.py`, `search_agent.py`, `reranker.py` | Open |
-| LLM-H2 | Dataset `question`/`answer` content injected into reranker and evaluator prompts (indirect injection via DB) | `reranker.py`, `search_agent.py` | Open |
+| LLM-H1 | Raw user queries injected into all LLM prompts (no sanitization, no structural separation) | `query_agent.py`, `search_agent.py`, `reranker.py` | **Fixed** (PR #25: search_agent, PR #29: query_agent + reranker — `wrap_external_content` boundary markers) |
+| LLM-H2 | Dataset `question`/`answer` content injected into reranker and evaluator prompts (indirect injection via DB) | `reranker.py`, `search_agent.py` | **Fixed** (PR #25: search_agent, PR #29: reranker — `sanitize_prompt_literal` + `wrap_external_content`) |
 | LLM-H3 | `format_description` enables LLM scope creep + triggers RCE via exec() | `agents/export_agent.py` | **Mitigated** (PR #25: exec sandbox prevents RCE; prompt injection risk remains) |
-| LLM-H4 | MCP tools have zero auth, rate limits, or quota enforcement | `mcp_server/server.py` | Open |
-| LLM-H5 | MCP collection tools expose all users' data (no user scoping) | `mcp_server/server.py` | Open |
+| LLM-H4 | MCP tools have zero auth, rate limits, or quota enforcement | `mcp_server/server.py` | **Fixed** (PR #28: API key auth middleware for HTTP mode) |
+| LLM-H5 | MCP collection tools expose all users' data (no user scoping) | `mcp_server/server.py` | **Fixed** (PR #28: collections scoped to authenticated user in HTTP mode) |
 
 ### MEDIUM
 
@@ -167,32 +171,30 @@ The two most severe issues (RCE via `exec()` and IDOR) have been fixed:
 |---|-----|----|
 | ~~1~~ | ~~Fix `exec()` sandbox~~ — restricted `__builtins__` to safe allowlist + output scanning | PR #25 |
 | ~~2~~ | ~~Fix IDOR~~ — shared `check_collection_ownership()` in `api/deps.py` | PR #20 |
-| ~~8~~ | ~~Input length limits~~ — already enforced via Pydantic `max_length` on all agent request fields | Existing |
+| ~~3~~ | ~~Enforce auth on MCP HTTP~~ — API key middleware + user scoping on collections | PR #28 |
+| ~~4~~ | ~~Startup assertion~~ — ValueError when `auth_enabled=True` + empty JWT secret | PR #27 |
+| ~~5~~ | ~~JWT issuer validation~~ — PyJWT `iss` claim check against Supabase URL | PR #27 |
+| ~~6~~ | ~~Fix billing webhook~~ — UNIQUE constraint on `polar_customer_id` | PR #27 |
+| ~~7~~ | ~~Structural prompt separation~~ — `wrap_external_content` boundary markers on all LLM prompts | PR #25, #29 |
+| ~~8~~ | ~~Input length limits~~ — already enforced via Pydantic `max_length` | Existing |
+| ~~9~~ | ~~Scope MCP collections~~ — HTTP mode scoped to authenticated user | PR #28 |
+| ~~10~~ | ~~Tighten CORS~~ — restricted to specific methods + headers | PR #20 |
 | ~~11~~ | ~~Add CSP header~~ + HSTS + X-Frame-Options DENY to nginx | PR #23 |
+| ~~12~~ | ~~Add Helm auth secrets~~ — Supabase, Polar, CORS, Qdrant | PR #29 |
+| ~~13~~ | ~~Secure Qdrant~~ — API key env var in docker-compose + Helm | PR #29 |
+| ~~14~~ | ~~Replace hardcoded DB credentials~~ — env vars in docker-compose, empty REQUIRED in Helm | PR #23, #29 |
 | ~~15~~ | ~~Atomic quota increment~~ — SQL `UPDATE...WHERE` with rowcount check | PR #20 |
-
-### Immediate (before any public access)
-
-1. **Enforce auth on MCP tools** or document that MCP HTTP must never be publicly exposed (SEC-C1)
-2. **Add startup assertion** that `supabase_jwt_secret` is non-empty when `auth_enabled=True` (SEC-C5)
-3. **Replace hand-rolled JWT** with PyJWT library — validate `iss`, `aud`, `nbf` claims (SEC-C4)
-4. **Fix billing webhook** to use `polar_customer_id` for returning subscribers + add UNIQUE on email (SEC-C3)
+| ~~16~~ | ~~Analytics auth~~ — `get_optional_user` scoping on `/analytics/stats` | PR #27 |
+| ~~17~~ | ~~Container non-root~~ — already runs as `appuser` | Existing |
 
 ### Before launch
 
-5. **Add `DELETE /account/me`** endpoint with cascade to curation_events, collections, API keys (GDPR-2)
-6. **Add `GET /account/export`** for data portability — all user data as JSON (GDPR-6)
-7. **Add structural prompt separation** — XML tags for user data, system instructions in `system` role (LLM-H1, LLM-H2)
-8. **Scope MCP collections** to authenticated user (LLM-H5)
-9. **Tighten CORS** — restrict `allow_methods` and `allow_headers` to needed values (SEC-M5)
-10. **Add Helm auth secrets** — Supabase, Polar, CORS (SEC-M7)
-11. **Sign DPAs** with Supabase, Polar.sh, Google, Anthropic (GDPR-5)
+1. **Add `DELETE /account/me`** endpoint with cascade to curation_events, collections, API keys (GDPR-2)
+2. **Add `GET /account/export`** for data portability — all user data as JSON (GDPR-6)
+3. **Sign DPAs** with Supabase, Polar.sh, Google, Anthropic (GDPR-5)
 
 ### After launch
 
-12. **Move rate limiter** to Redis for multi-worker correctness (SEC-H2)
-13. **Add Langfuse instrumentation** to LLM calls for AI Act audit trail (AI-2)
-14. **Implement data retention policy** — anonymise curation events older than 24 months (GDPR-7)
-15. **Run container as non-root** user (SEC-L4)
-16. **Secure Qdrant** with API key in docker-compose and Helm (SEC-H5)
-17. **Replace hardcoded DB credentials** with env vars / secrets (SEC-H6)
+4. **Move rate limiter** to Redis for multi-worker correctness (SEC-H2)
+5. **Add Langfuse instrumentation** to LLM calls for AI Act audit trail (AI-2)
+6. **Implement data retention policy** — anonymise curation events older than 24 months (GDPR-7)
