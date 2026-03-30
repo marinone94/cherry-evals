@@ -34,7 +34,7 @@ class User(Base):
     trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Polar.sh subscription
-    polar_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    polar_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     polar_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     subscription_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
 

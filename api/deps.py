@@ -76,16 +76,20 @@ def _get_limits(user: User | None) -> dict:
 def _decode_supabase_jwt(token: str) -> dict:
     """Decode and verify a Supabase JWT using PyJWT (HS256).
 
-    Validates signature, expiry, audience, and not-before claims.
-    Returns the JWT payload dict, or raises HTTPException on failure.
+    Validates signature, expiry, audience, not-before, and (when supabase_url is
+    configured) issuer claims.  Returns the JWT payload dict, or raises
+    HTTPException on failure.
     """
+    decode_kwargs = {
+        "jwt": token,
+        "key": settings.supabase_jwt_secret,
+        "algorithms": ["HS256"],
+        "audience": "authenticated",
+    }
+    if settings.supabase_url:
+        decode_kwargs["issuer"] = settings.supabase_url.rstrip("/") + "/auth/v1"
     try:
-        return pyjwt.decode(
-            token,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            audience="authenticated",
-        )
+        return pyjwt.decode(**decode_kwargs)
     except pyjwt.InvalidTokenError as e:
         logger.warning("JWT decode failed: %s", e)
         raise HTTPException(status_code=401, detail="Invalid token") from e

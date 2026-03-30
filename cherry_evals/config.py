@@ -61,18 +61,17 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _check_auth_secrets(self) -> "Settings":
-        """Disable auth if JWT secret is missing (safe dev default).
+        """Crash startup if AUTH_ENABLED=True but JWT secret is missing.
 
-        In production, SUPABASE_JWT_SECRET must be set when AUTH_ENABLED=True.
-        Locally this falls back to open access with a loud warning.
+        Silent fallback to AUTH_ENABLED=False is a security risk — a misconfigured
+        production deployment would silently accept unauthenticated requests.
+        If you want auth disabled for local development, set AUTH_ENABLED=False explicitly.
         """
         if self.auth_enabled and not self.supabase_jwt_secret:
-            _config_logger.warning(
-                "AUTH_ENABLED=True but SUPABASE_JWT_SECRET is empty — "
-                "falling back to AUTH_ENABLED=False. "
-                "Set SUPABASE_JWT_SECRET for production."
+            raise ValueError(
+                "SUPABASE_JWT_SECRET must be set when AUTH_ENABLED=True. "
+                "Set AUTH_ENABLED=False explicitly for local development."
             )
-            self.auth_enabled = False
         return self
 
 

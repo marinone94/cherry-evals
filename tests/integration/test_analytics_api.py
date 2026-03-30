@@ -310,3 +310,67 @@ class TestEventRecordingDoesNotBreakFlows:
 
         # Should succeed (falls back to keyword)
         assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# SEC-H3: Analytics stats scoped to authenticated user
+# ---------------------------------------------------------------------------
+
+
+class TestAnalyticsStatsAuthScoping:
+    """SEC-H3: /analytics/stats scopes data to the authenticated user."""
+
+    def test_unauthenticated_stats_returns_global_counts(self, test_client, test_db_session):
+        """Unauthenticated request gets aggregate counts (no query history)."""
+        test_db_session.add(
+            CurationEvent(event_type="search", query="secret query", user_id="user-999")
+        )
+        test_db_session.flush()
+
+        response = test_client.get("/analytics/stats")
+
+        assert response.status_code == 200
+        data = response.json()
+        # most_searched_queries is empty for unauthenticated (privacy)
+        assert data["most_searched_queries"] == []
+        # but total_events includes all events
+        assert data["total_events"] >= 1
+
+    def test_authenticated_stats_scoped_to_user(
+        self, test_client, test_db_session, authed_client_free
+    ):
+        """Authenticated user sees only their own events."""
+        # Event belonging to this user (supabase_id="test-user-123" from _make_fake_user)
+        test_db_session.add(
+            CurationEvent(event_type="search", query="my query", user_id="test-user-123")
+        )
+        # Event belonging to another user
+        test_db_session.add(
+            CurationEvent(event_type="search", query="their query", user_id="other-user-456")
+        )
+        test_db_session.flush()
+
+        response = authed_client_free.get("/analytics/stats")
+
+        assert response.status_code == 200
+        data = response.json()
+        # Authenticated user sees query history
+        query_strings = [item["query"] for item in data["most_searched_queries"]]
+        assert "my query" in query_strings
+        # Other user's query must not appear
+        assert "their query" not in query_strings
+
+    def test_authenticated_stats_total_scoped_to_user(self, authed_client_free, test_db_session):
+        """Total event count is scoped to the authenticated user, not global."""
+        # 1 event for this user, 5 for others
+        test_db_session.add(CurationEvent(event_type="pick", user_id="test-user-123"))
+        for i in range(5):
+            test_db_session.add(CurationEvent(event_type="search", user_id=f"stranger-{i}"))
+        test_db_session.flush()
+
+        response = authed_client_free.get("/analytics/stats")
+
+        assert response.status_code == 200
+        data = response.json()
+        # The user's total should only count their own event
+        assert data["total_events"] == 1
