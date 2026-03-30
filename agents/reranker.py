@@ -10,6 +10,7 @@ from google import genai
 
 from agents.prompts.search import RERANKING_PROMPT
 from cherry_evals.config import settings
+from core.safety.content_wrapper import sanitize_prompt_literal, wrap_external_content
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +26,8 @@ def _build_rerank_prompt(query: str, results: list[dict]) -> str:
     """Build the prompt for re-ranking, truncating result text to keep it concise."""
     summaries = []
     for r in results[:_MAX_INPUT_RESULTS]:
-        question_snippet = (r.get("question") or "")[:_SNIPPET_LENGTH]
-        answer_snippet = (r.get("answer") or "")[:_SNIPPET_LENGTH]
+        question_snippet = sanitize_prompt_literal((r.get("question") or "")[:_SNIPPET_LENGTH])
+        answer_snippet = sanitize_prompt_literal((r.get("answer") or "")[:_SNIPPET_LENGTH])
         metadata = r.get("example_metadata") or {}
         summaries.append(
             {
@@ -34,11 +35,13 @@ def _build_rerank_prompt(query: str, results: list[dict]) -> str:
                 "question": question_snippet,
                 "answer": answer_snippet,
                 "dataset": r.get("dataset_name", ""),
-                "subject": metadata.get("subject", ""),
+                "subject": sanitize_prompt_literal(metadata.get("subject", "")),
             }
         )
 
-    user_message = f"Query: {query}\n\nResults to rank:\n{json.dumps(summaries, indent=2)}"
+    safe_query = wrap_external_content(query, source="user_query")
+    results_block = wrap_external_content(json.dumps(summaries, indent=2), source="search_results")
+    user_message = f"Query:\n{safe_query}\n\nResults to rank:\n{results_block}"
     return f"{RERANKING_PROMPT}\n\n{user_message}"
 
 

@@ -143,6 +143,42 @@ spec:
                   name: {{ include "cherry-evals.secretName" . }}
                   key: LANGFUSE_SECRET_KEY
 
+            {{- /* Auth (Supabase) */}}
+            - name: SUPABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "cherry-evals.secretName" . }}
+                  key: SUPABASE_URL
+            - name: SUPABASE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "cherry-evals.secretName" . }}
+                  key: SUPABASE_JWT_SECRET
+            - name: AUTH_ENABLED
+              value: {{ .Values.config.authEnabled | quote }}
+
+            {{- /* Billing (Polar.sh) */}}
+            - name: POLAR_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "cherry-evals.secretName" . }}
+                  key: POLAR_WEBHOOK_SECRET
+            - name: POLAR_PRO_PRODUCT_ID
+              value: {{ .Values.config.polarProProductId | quote }}
+            - name: POLAR_ULTRA_PRODUCT_ID
+              value: {{ .Values.config.polarUltraProductId | quote }}
+
+            {{- /* CORS */}}
+            - name: CORS_ORIGINS
+              value: {{ .Values.config.corsOrigins | quote }}
+
+            {{- /* Qdrant auth */}}
+            - name: QDRANT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "cherry-evals.secretName" . }}
+                  key: QDRANT_API_KEY
+
             {{- /* Enterprise license key */}}
             {{- if .Values.enterprise.enabled }}
             - name: ENTERPRISE_LICENSE_KEY
