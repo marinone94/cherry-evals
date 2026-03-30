@@ -22,7 +22,7 @@ postgres:
   port: 5432
   database: cherry_evals
   username: cherry
-  password: cherry  # Override in production!
+  password: ""  # REQUIRED
   storage:
     size: 10Gi
     storageClass: ""
@@ -59,6 +59,18 @@ config:
   langfusePublicKey: ""
   langfuseSecretKey: ""
   langfuseBaseUrl: "https://cloud.langfuse.com"
+  # Auth (Supabase)
+  supabaseUrl: ""
+  supabaseJwtSecret: ""
+  authEnabled: "true"
+  # Billing (Polar.sh)
+  polarWebhookSecret: ""
+  polarProProductId: ""
+  polarUltraProductId: ""
+  # CORS
+  corsOrigins: ""
+  # Qdrant auth
+  qdrantApiKey: ""
 
 # Enterprise features
 enterprise:

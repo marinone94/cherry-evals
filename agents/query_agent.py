@@ -11,6 +11,7 @@ from google import genai
 
 from agents.prompts.search import QUERY_UNDERSTANDING_PROMPT
 from cherry_evals.config import settings
+from core.safety.content_wrapper import wrap_external_content
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,8 @@ _GEMINI_MODEL = "gemini-2.0-flash"
 def _build_parse_prompt(query: str, available_datasets: list[str] | None) -> str:
     """Build the full prompt for query parsing."""
     datasets = available_datasets or AVAILABLE_DATASETS
-    user_message = f"Available datasets: {', '.join(datasets)}\n\nQuery: {query}"
+    safe_query = wrap_external_content(query, source="user_query")
+    user_message = f"Available datasets: {', '.join(datasets)}\n\nQuery:\n{safe_query}"
     return f"{QUERY_UNDERSTANDING_PROMPT}\n\n{user_message}"
 
 
